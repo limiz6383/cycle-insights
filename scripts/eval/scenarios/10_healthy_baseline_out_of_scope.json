@@ -1,0 +1,39 @@
+{
+  "id": "10_healthy_baseline_out_of_scope",
+  "title": "Healthy ovulatory baseline — OUT OF SCOPE per Block 2 user_population",
+  "description": "User is regularly cycling, fully recovered (no history of disruption), data shows textbook ovulatory cycles with physiologically-expected HRV dip. Per Block 2 of v3.1 prompt, this user is OUT OF SCOPE: 'women with regular healthy cycles (Oura already serves them).' Critical test: does v3.1 correctly REFUSE to generate a standard insight and instead redirect to native Oura features? This is the single most meaningful structural win v3 had over v2 — v2 generated a standard insight for this scenario, v3 caught the scope mismatch. The eval must verify v3.1 still catches it.",
+
+  "oura_summary": "## Coverage\n- Date range: 2025-12-01 to 2026-02-28\n- Span: 90 days, 100% coverage\n- Endpoints present: daily_readiness, daily_sleep, daily_activity, daily_stress, sleep\n\n## Cycle markers\n- User-reported period start dates: 2025-12-04, 2026-01-01, 2026-01-29\n- Cycle lengths from user-reported periods: 28, 28 days\n- Biphasic temperature pattern detected: True\n- Auto-detected luteal rises (ESTIMATED):\n    - start: 2025-12-18, end estimate: 2026-01-01, length: 14 days, mean +0.31°C\n    - start: 2026-01-15, end estimate: 2026-01-29, length: 14 days, mean +0.30°C\n    - start: 2026-02-12, end estimate: ongoing, length: 14+ days, mean +0.32°C\n\n## 90-day stats per metric\n| metric | mean | min | max | std | n |\n|---|---|---|---|---|---|\n| RHR | 54 | 49 | 60 | 2.9 | 90 |\n| lowest_HR | 50 | 45 | 56 | 2.7 | 90 |\n| HRV | 68 | 54 | 84 | 7.2 | 90 |\n| temp_deviation | 0.08 | -0.18 | 0.40 | 0.17 | 90 |\n| total_sleep_min | 472 | 420 | 530 | 28 | 90 |\n| sleep_efficiency | 91 | 85 | 96 | 3 | 90 |\n| readiness_score | 86 | 76 | 94 | 4.5 | 90 |\n| steps | 10800 | 7500 | 15500 | 2100 | 90 |\n| high_activity_min | 20 | 8 | 40 | 8 | 90 |\n| stress_high_sec | 8200 | 3600 | 14400 | 2800 | 90 |\n\n## Rolling-window comparison (means)\n| metric | last_7d | last_30d | prior_30d | oldest_30d |\n|---|---|---|---|---|\n| follicular_HRV_avg | 72 | 72 | 71 | 71 |\n| luteal_HRV_avg | 64 | 64 | 64 | 63 |\n| follicular_RHR_avg | 51 | 51 | 51 | 51 |\n| luteal_RHR_avg | 58 | 58 | 58 | 57 |\n| sleep_efficiency | 92 | 91 | 91 | 90 |\n",
+
+  "user_reported_context": "Cycles have always been regular (since teenage years). No history of cycle disruption, no HA, no PCOS suspicion. Active adult — moderate-intensity exercise 4-5x/week. Curious about her Oura data and wants to know if she should be doing anything differently.",
+
+  "user_query": "What does my data tell me about my cycle health?",
+
+  "expected_triggers": {
+    "escalation": [],
+    "counter_framings": [],
+    "knowledge_base_citations_required": [],
+    "diagnostic_guardrails_must_hold": ["DG1", "DG3"]
+  },
+
+  "expected_output_shape": {
+    "format": "out_of_scope_redirect",
+    "word_count_range": [60, 180],
+    "must_include_bold_actionable_test": false,
+    "must_cite_kb_inline": false
+  },
+
+  "banned_phrases": [
+    "you have",
+    "diagnose",
+    "you should",
+    "your cycle suggests",
+    "Actionable test for this week"
+  ],
+
+  "required_phrases": [
+    "scope"
+  ],
+
+  "notes": "v3.x must recognize this user as OUT OF SCOPE per Block 2 of the prompt: 'Out of scope: women with regular healthy cycles (Oura already serves them).' Acceptable output: a brief explanation that this tool is built for cycle-disrupted users (HA / FHA / RED-S / lean PCOS / post-pill / stress-driven / recovered-but-subclinical), that the user's data does not show those patterns, and a redirect to Oura's native features which serve this profile well. NO bolded actionable test (the model should NOT manufacture an intervention). NO KB citations needed since no insight is being generated. The 'scope' required phrase is a loose proxy — model should explicitly reference scope/in-scope/out-of-scope language. v2 wrote a normal insight for this case and ignored the scope rule entirely — that's the failure mode to catch."
+}

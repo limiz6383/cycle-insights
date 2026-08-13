@@ -1,0 +1,34 @@
+{
+  "id": "NN_short_name",
+  "title": "Short description",
+  "description": "What sub-population this models, which rules it stress-tests, and any v2 failure mode it specifically targets.",
+
+  "oura_summary": "## Coverage\n- Date range: 2026-XX-XX to 2026-XX-XX\n- 90 days, XX% coverage\n\n## Cycle markers\n- User-reported periods: ...\n- Biphasic temperature pattern detected: True/False\n\n## 90-day stats per metric\n| metric | mean | min | max |\n|---|---|---|---|\n| RHR | XX | XX | XX |\n| HRV | XX | XX | XX |\n| temp_deviation | XX | XX | XX |\n",
+
+  "user_reported_context": "Period dates, symptoms, prior diagnoses, training/intake history. Empty string if first-time query with no context.",
+
+  "user_query": "",
+
+  "expected_triggers": {
+    "escalation": [],
+    "counter_framings": [],
+    "knowledge_base_citations_required": [],
+    "diagnostic_guardrails_must_hold": ["DG1"]
+  },
+
+  "expected_output_shape": {
+    "format": "standard_insight",
+    "word_count_range": [100, 180],
+    "must_include_bold_actionable_test": true,
+    "must_cite_kb_inline": true
+  },
+
+  "banned_phrases": [
+    "you have",
+    "diagnose"
+  ],
+
+  "required_phrases": [],
+
+  "notes": "Free-form notes for case-study reference. Why this scenario matters, what v2 did wrong here, any clinical nuance worth flagging."
+}

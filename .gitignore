@@ -1,0 +1,32 @@
+# Secrets
+.env
+
+# Personal biometric data — do not publish
+insights/
+scripts/oura_data.json
+scripts/oura_summary.md
+
+# Eval run output (regenerate with run_eval.py)
+scripts/eval/results/
+
+# Telegram polling cursor
+.telegram_state.json
+
+__pycache__/
+*.pyc
+
+# Raw Telegram updates (safety net)
+.telegram_raw.jsonl
+
+# Internal planning docs — contain career/personal context, not for publication
+context.md
+prd.md
+task.md
+reviews/
+
+# Development transcripts — contain real biometric outputs
+pretotype_log.md
+
+# Stray backups
+*.bak-*
+*.bak
