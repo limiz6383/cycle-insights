@@ -84,7 +84,7 @@ def _replace_block(text, tag, content):
 
 
 def inject_user_data(system_prompt, oura_summary="", user_reported_context="", user_query="",
-                     recent_insights="", cadence="weekly"):
+                     recent_insights="", cadence="weekly", conversation=""):
     """
     Fill the three runtime placeholders inside <user_data>.
 
@@ -106,9 +106,11 @@ def inject_user_data(system_prompt, oura_summary="", user_reported_context="", u
     if re.search(r"^<recent_insights>[ \t]*$", out, re.MULTILINE):
         out = _replace_block(out, "recent_insights", recent_insights or "(none yet)")
     if re.search(r"^<cadence>[ \t]*$", out, re.MULTILINE):
-        if cadence not in ("daily", "weekly"):
-            sys.exit("cadence must be 'daily' or 'weekly', got {!r}".format(cadence))
+        if cadence not in ("daily", "weekly", "chat"):
+            sys.exit("cadence must be 'daily', 'weekly' or 'chat', got {!r}".format(cadence))
         out = _replace_block(out, "cadence", cadence)
+    if re.search(r"^<conversation>[ \t]*$", out, re.MULTILINE):
+        out = _replace_block(out, "conversation", conversation or "(this is the first message)")
     return out
 
 

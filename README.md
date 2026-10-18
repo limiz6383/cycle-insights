@@ -40,6 +40,7 @@ scripts/
   backfill.py             Retrospective weekly insights over historical data
   send_insight.py         Push to Telegram, record the message id
   poll_feedback.py        Replies (or --rate) → structured feedback records
+  chat_bot.py             Two-way Telegram chat: ask questions, rate insights by replying
   scheduled_pull.py       Unattended fetch + preprocess (optionally the weekly
                             insight), for launchd/cron
   config.py               .env loader, stdlib only
@@ -90,7 +91,7 @@ Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled
 
 To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
 
-The system prompt is published at [`prompts/v3.3.md`](prompts/v3.3.md) — all fourteen blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
+The system prompt is published at [`prompts/v3.3.md`](prompts/v3.3.md) — all fifteen blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
 Not published: the development log it was extracted from, and every generated insight. Both contain real biometric output.
 
