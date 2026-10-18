@@ -13,9 +13,8 @@ Requires:
 
 Scenarios are JSON files in scenarios/ — stdlib only, no extra deps.
 
-The v3.x prompt itself lives in `pretotype_log.md`. By default this runner
-extracts the prompt from that file by matching the fenced code block under
-the v3.1 heading. Override with --prompt-file if you save the prompt elsewhere.
+The prompt is read from prompts/<prompt-version>.md (prompts/v3.1.md by
+default). Override with --prompt-file to test a prompt saved elsewhere.
 """
 import argparse
 import json
@@ -55,9 +54,9 @@ def load_all_scenarios() -> list:
     return scenarios
 
 
-def load_prompt_from_log(prompt_version: str = "v3.1") -> str:
+def load_system_prompt(prompt_version: str = "v3.1", prompt_file: str = None) -> str:
     """Delegates to prompt_lib so the eval loads the same prompt production does."""
-    return load_prompt(prompt_version)
+    return load_prompt(prompt_version, prompt_file)
 
 
 def inject_scenario_into_prompt(system_prompt: str, scenario: dict) -> str:
@@ -93,9 +92,9 @@ def call_claude(system_prompt: str, dry_run: bool = False) -> str:
 
 
 def evaluate_scenario(scenario: dict, prompt_version: str, dry_run: bool = False,
-                       skip_judge: bool = False) -> dict:
+                       skip_judge: bool = False, prompt_file: str = None) -> dict:
     """Run one scenario through the prompt + apply deterministic and judge checks."""
-    system_prompt_raw = load_prompt_from_log(prompt_version)
+    system_prompt_raw = load_system_prompt(prompt_version, prompt_file)
     system_prompt = inject_scenario_into_prompt(system_prompt_raw, scenario)
     output_text = call_claude(system_prompt, dry_run=dry_run)
 
@@ -176,7 +175,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scenario", help="Scenario ID to run (e.g., 01_deep_ha)")
     ap.add_argument("--all", action="store_true", help="Run all scenarios")
-    ap.add_argument("--prompt-version", default="v3.1", help="Prompt version label (for results filename)")
+    ap.add_argument("--prompt-version", default="v3.1", help="Prompt version label (for results filename); also picks prompts/<version>.md")
+    ap.add_argument("--prompt-file", default=None,
+                    help="Read the system prompt from this file (default: prompts/<prompt-version>.md)")
     ap.add_argument("--dry-run", action="store_true",
                     help="Don't call Claude API; print assembled prompt and skip generation")
     ap.add_argument("--skip-judge", action="store_true",
@@ -194,7 +195,7 @@ def main():
     for sc in scenarios:
         print(f"Running scenario: {sc['id']}")
         r = evaluate_scenario(sc, args.prompt_version, dry_run=args.dry_run,
-                              skip_judge=args.skip_judge)
+                              skip_judge=args.skip_judge, prompt_file=args.prompt_file)
         results.append(r)
 
     if not args.dry_run:

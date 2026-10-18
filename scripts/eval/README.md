@@ -6,37 +6,47 @@ Automated structural eval for the v3.x system prompt. Replaces the manual within
 
 ```
 scripts/eval/
-  scenarios/              # One YAML per scenario; oura_summary + context + expected behavior
-    01_deep_ha.yaml
-    02_early_recovery.yaml
+  scenarios/              # One JSON per scenario; oura_summary + context + expected behavior
+    01_deep_ha.json
+    02_early_recovery_anovulatory.json
     ...
-    template.yaml         # Copy this when adding a new scenario
+    template.json         # Copy this when adding a new scenario
   rules/                  # Rule checkers
-    deterministic.py      # Regex / string / count checks (OF1 word count, DG3 banned phrases, etc.)
-    judge.py              # LLM-as-judge checks (CF firing, DG1 absence, NT2 hallucination detection)
+    deterministic.py      # Regex / string / count checks (OF1 word count, OF2 citations and numbers, banned/required phrases)
+    judge.py              # LLM-as-judge checks (NT2 hallucination chain, CF1 reframe, DG8 ambiguity, escalation firing)
+  prompt_lib.py           # Shared prompt loading + assembly + API call (also used by generate_insight.py)
   run_eval.py             # Main runner — loads scenarios, calls Claude, applies checkers, writes results
-  results/                # JSON results per run, timestamped
-    2026-06-01T1200_v3.2.json
+  results/                # JSON results per run, timestamped (gitignored)
+    2026-06-01T1200_v3.1.json
     ...
   README.md
 ```
 
 ## Running the eval
 
+Run from `scripts/eval/`. The prompt is read from `prompts/<prompt-version>.md` at the repo root, so `prompts/v3.1.md` by default.
+
 ```bash
+# Check the wiring without an API key: assembles the prompt, makes no API calls
+python3 run_eval.py --scenario 01_deep_ha --dry-run
+
 # Single scenario
-python3 run_eval.py --scenario 01_deep_ha --prompt-version v3.2
+python3 run_eval.py --scenario 01_deep_ha
 
-# All scenarios
-python3 run_eval.py --all --prompt-version v3.2
+# All scenarios, deterministic checks only (no judge calls)
+python3 run_eval.py --all --skip-judge
 
-# Compare two prompt versions
-python3 run_eval.py --diff v3.1 v3.2
+# A prompt saved somewhere else
+python3 run_eval.py --all --prompt-file ../../prompts/my_draft.md --prompt-version v3.2-draft
 ```
+
+A real run needs `pip install anthropic` and `ANTHROPIC_API_KEY` (in the environment or the repo's `.env`). In `--dry-run` every check reports FAIL, because there is no generated output to score; that is expected.
+
+`--prompt-file` takes either a bare prompt or a markdown file like `prompts/v3.1.md`, where the prompt is the first fenced code block. `--prompt-version` is the label written into the results filename.
 
 ## Adding a new scenario
 
-1. `cp scenarios/template.yaml scenarios/NN_short_name.yaml`
+1. `cp scenarios/template.json scenarios/NN_short_name.json`
 2. Fill in `oura_summary` (paste pre-processed Oura summary in markdown form — see `scripts/preprocess_oura.py` output for the shape)
 3. Fill in `user_reported_context` (period dates, symptoms, prior diagnoses if any)
 4. Fill in `user_query` (or leave empty for default weekly-insight behavior)
@@ -44,15 +54,14 @@ python3 run_eval.py --diff v3.1 v3.2
 6. Fill in `banned_phrases` — specific phrases that would indicate a rule violation (e.g., from prior v2 failure modes)
 7. Run `python3 run_eval.py --scenario NN_short_name`
 
-## Why scenarios are YAML, not Python
+## Why scenarios are JSON, not Python
 
-Scenarios are *data*, not code. YAML lets you eyeball a scenario in 30 seconds without parsing logic. The runner is Python; scenarios are declarative.
+Scenarios are *data*, not code. JSON lets you eyeball a scenario in 30 seconds without parsing logic, and loads with the standard library alone. The runner is Python; scenarios are declarative.
 
 ## What this harness does NOT do (yet)
 
-- Doesn't call the real Claude API in this skeleton — `call_claude()` is a placeholder. Wire it up in the first eval session by reading `ANTHROPIC_API_KEY` from env.
-- Doesn't yet have all rule checkers implemented — only OF1 word count + DG3 banned phrases + KB citation presence are stubbed in `rules/deterministic.py`. The harder rules (CF firing, NT2 hallucination, DG1 absence) need `rules/judge.py` (LLM-as-judge) implementations.
-- Doesn't have a diff view between prompt versions — `--diff` flag is reserved but unimplemented.
+- Doesn't cover every rule in the prompt. `rules/deterministic.py` and `rules/judge.py` check only the rules listed above (DG1 is covered indirectly, inside the DG8 ambiguity check).
+- Doesn't have a diff view between prompt versions. Compare two results files by hand for now.
 
 These are the next things to fill in. Each is a small concrete unit of work; don't try to do all at once.
 
