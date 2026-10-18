@@ -9,6 +9,8 @@ Two-way Telegram chat on top of the same prompt, data and guardrails as the dail
 What it does with each message from your chat (anything from another chat is ignored):
   - A reply to an insight that starts with a rating word (useful, wrong, unsafe, obvious,
     not_actionable) is stored as feedback on that insight, exactly as poll_feedback.py does.
+  - A tap on a check-in button (or a typed answer while one is open) records whether you did
+    yesterday's steps and then releases the insight that was held behind it.
   - /help lists these commands; /insight shows the latest insight.
   - Anything else is a question. It goes to the model with prompt v3.3 in "chat" cadence:
     your Oura summary (scripts/oura_summary.md, refreshed by scheduled_pull.py), the recent
@@ -29,7 +31,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "eval"))
 from config import REPO_ROOT, get, require  # noqa: E402
-from send_insight import api_call, send_message, TELEGRAM_MAX  # noqa: E402
+from send_insight import api_call, deliver_insight, send_message, TELEGRAM_MAX  # noqa: E402
+import checkin  # noqa: E402
 import poll_feedback as pf  # noqa: E402
 from prompt_lib import DEFAULT_MODEL, call_claude, inject_user_data, load_prompt  # noqa: E402
 
@@ -73,7 +76,8 @@ def recent_insight_text(n=3, insights_dir=None):
     out = []
     for f in sorted(d.glob("*.json"), reverse=True)[:n]:
         rec = json.loads(f.read_text())
-        out.append("[{}] {}".format(rec.get("insight_id", f.stem), rec.get("insight_text", "")))
+        out.append("[{}] {}{}".format(rec.get("insight_id", f.stem), rec.get("insight_text", ""),
+                                      checkin.followup_tag(rec)))
     return "\n".join(out)
 
 
@@ -112,6 +116,44 @@ def latest_insight_message():
     return "[{}]\n{}".format(rec.get("insight_id"), rec.get("insight_text", ""))[: TELEGRAM_MAX - 50]
 
 
+def resolve_checkin(prev_id, status, note, chat_id, args, insights_dir=None):
+    """Store her answer on yesterday's record and release the insight held behind it."""
+    d = Path(insights_dir or pf.INSIGHTS_DIR)
+    prev = d / "{}.json".format(prev_id)
+    if not prev.exists():
+        return False
+    if not args.dry_run:
+        checkin.record_followup(prev, status, note)
+    held = checkin.pending_release(d)
+    if held:
+        deliver_insight(held[0], chat_id, dry_run=args.dry_run)
+    return True
+
+
+def open_checkin(insights_dir=None):
+    """The record whose check-in is open (insight held behind it), or None."""
+    d = Path(insights_dir or pf.INSIGHTS_DIR)
+    held = checkin.pending_release(d)
+    if not held:
+        return None
+    waiting = checkin.awaiting_checkin(d, held[0].stem)
+    return waiting[0] if waiting else None
+
+
+def handle_callback(cb_query, allowed_chat_id, args):
+    """A tap on a check-in button: callback_data is ci:<insight id>:<status>."""
+    chat_id = str(((cb_query.get("message") or {}).get("chat") or {}).get("id", ""))
+    data = cb_query.get("data") or ""
+    if chat_id != str(allowed_chat_id) or not data.startswith("ci:"):
+        return "ignored"
+    _, prev_id, status = data.split(":", 2)
+    if status not in ("all", "some", "none"):
+        return "ignored"
+    if not args.dry_run:
+        api_call("answerCallbackQuery", {"callback_query_id": cb_query["id"], "text": "Noted"})
+    return "checkin" if resolve_checkin(prev_id, status, "", chat_id, args) else "ignored"
+
+
 def handle_message(msg, allowed_chat_id, args, index=None, reply=None):
     """
     Route one Telegram message. Returns a short tag ('ignored', 'feedback', 'command',
@@ -142,6 +184,14 @@ def handle_message(msg, allowed_chat_id, args, index=None, reply=None):
             reply(HELP)
         return "command"
 
+    waiting = open_checkin()
+    if waiting is not None:                      # typed answer to the check-in
+        status = checkin.classify(text)
+        resolve_checkin(waiting.stem, status, text if status == "note" else "", chat_id, args)
+        reply("Thanks, noted. Here is today's insight." if status != "note"
+              else "Thanks, noted. Here is today's insight; ask me anything after it.")
+        return "checkin"
+
     history = load_history()
     if not args.dry_run:
         append_history("user", text)
@@ -164,6 +214,12 @@ def poll_once(args, state, allowed_chat_id, timeout=25):
                 fh.write(json.dumps(u) + "\n")
     for u in updates:
         state["last_update_id"] = max(state["last_update_id"], u["update_id"])
+        if u.get("callback_query"):
+            print("[{}] update {}: {}".format(time.strftime("%H:%M:%S"), u["update_id"],
+                                              handle_callback(u["callback_query"], allowed_chat_id, args)))
+            if not args.dry_run:
+                pf.save_state(state)
+            continue
         msg = u.get("message")
         if not msg:
             continue

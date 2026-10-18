@@ -42,6 +42,23 @@ METRICS = [
 ]
 
 
+def load_actions(insights_dir):
+    """Suggested steps (and her answers) from saved insight records. Missing folder -> []."""
+    out = []
+    d = Path(insights_dir)
+    if not d.is_dir():
+        return out
+    for f in sorted(d.glob("*.json")):
+        try:
+            rec = json.loads(f.read_text())
+        except ValueError:
+            continue
+        if rec.get("today_steps"):
+            out.append({"id": rec.get("insight_id", f.stem), "steps": rec["today_steps"],
+                        "status": (rec.get("followup") or {}).get("status")})
+    return out
+
+
 def load_data(path):
     with open(path) as f:
         return json.load(f)
@@ -402,6 +419,9 @@ def main():
     ap.add_argument("--user-log", default=str(Path(__file__).resolve().parent / "user_cycle_log.json"),
                     help="Local gitignored JSON with 'spotting' and 'not_a_period' range lists "
                          "(see user_cycle_log.example.json). Merged with the flags above.")
+    ap.add_argument("--insights-dir", default=str(Path(__file__).resolve().parent.parent / "insights"),
+                    help="Folder of past insight records; their suggested steps and answers are "
+                         "compared with the data that followed.")
     ap.add_argument("--as-of", default=None,
                     help="Build the summary as it would have looked on this date (YYYY-MM-DD). "
                          "Drops all days AFTER it and all period dates after it, so a "
@@ -467,7 +487,8 @@ def main():
     coverage = coverage_notes(data, sorted_days)
 
     md = to_markdown(days, sorted_days, all_stats, cycle_info, coverage)
-    md += "\n" + cycle_analysis.render_markdown(days, sorted_days, cycles)
+    md += "\n" + cycle_analysis.render_markdown(days, sorted_days, cycles,
+                                                actions=load_actions(args.insights_dir))
     with open(args.output, "w") as f:
         f.write(md)
     print(f"Wrote {args.output} ({len(md.splitlines())} lines, {len(sorted_days)} days)")

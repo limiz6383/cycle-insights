@@ -30,6 +30,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "eval"))
+import checkin  # noqa: E402
 from prompt_lib import (  # noqa: E402
     DEFAULT_MAX_TOKENS,
     DEFAULT_MODEL,
@@ -64,7 +65,11 @@ def recent_insights(out_dir, label, n=7):
     for f in files:
         body = [ln for ln in f.read_text().splitlines()
                 if ln.strip() and not ln.startswith("#") and not ln.startswith("_Prompt")]
-        chunks.append("[{}] {}".format(f.stem, " ".join(body)))
+        tag = ""
+        jf = f.with_suffix(".json")
+        if jf.exists():
+            tag = checkin.followup_tag(json.loads(jf.read_text()))
+        chunks.append("[{}] {}{}".format(f.stem, " ".join(body), tag))
     return "\n".join(chunks)
 
 
@@ -165,6 +170,7 @@ def main():
         "query": args.query,
         "user_reported_context": context,
         "insight_text": text,
+        "today_steps": checkin.extract_steps(text),
         "usage": usage,
         "feedback": {
             "rating": None,          # useful | wrong | unsafe | not_actionable | obvious

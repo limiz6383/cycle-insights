@@ -399,6 +399,46 @@ def overall_sd(days, sorted_days, metric):
 # Rendering
 # --------------------------------------------------------------------------
 
+def action_outcomes(days, sorted_days, actions, metrics=None, max_age=28, min_after=3):
+    """
+    What her biometrics did after each suggested action.
+
+    For an action sent on day D: 'before' = the 7 days up to D, 'after' = every day since D
+    (needs `min_after`), spread = the SD of the days older than that 7-day window (needs 14).
+    A metric is reported when the after-minus-before change is at least NOTABLE_SD spreads.
+    It is a description of timing, not evidence the action did anything, and the phase at D
+    and now are returned so phase drift can be told apart.
+    actions: [{"id": "YYYY-MM-DD", "steps": str, "status": "all"|"some"|"none"|"note"|None}]
+    Returns rows newest first, only for actions at most `max_age` days old.
+    """
+    metrics = metrics or NIGHT_METRICS
+    out = []
+    for a in sorted(actions, key=lambda x: x["id"], reverse=True):
+        if a["id"] not in days:
+            continue
+        i = sorted_days.index(a["id"])
+        age = len(sorted_days) - 1 - i
+        if age > max_age:
+            continue
+        row = {"id": a["id"], "steps": a.get("steps", ""), "status": a.get("status"),
+               "age": age, "phase_then": days[a["id"]].get("phase"),
+               "phase_now": days[sorted_days[-1]].get("phase"), "moves": [], "enough": age >= min_after}
+        if row["enough"]:
+            before = sorted_days[max(0, i - 6):i + 1]
+            pool = sorted_days[:max(0, i - 6)]
+            after = sorted_days[i + 1:]
+            for m in metrics:
+                _, sd = _mean_sd(_vals(days, pool, m))
+                b, a2 = _vals(days, before, m), _vals(days, after, m)
+                if not sd or len(b) < 4 or len(a2) < min_after:
+                    continue
+                z = (mean(a2) - mean(b)) / sd
+                if abs(z) >= NOTABLE_SD:
+                    row["moves"].append((m, mean(b), mean(a2), z))
+        out.append(row)
+    return out
+
+
 def _fmt(v, dec=1, sign=False):
     if v is None:
         return "--"
@@ -410,7 +450,7 @@ def _dec(m):
     return PHASE_METRICS.get(m, {}).get("dec", 1)
 
 
-def render_markdown(days, sorted_days, cycles, period_source=""):
+def render_markdown(days, sorted_days, cycles, period_source="", actions=None):
     """The 'Personalization' sections appended to oura_summary.md."""
     L = []
     last = sorted_days[-1]
@@ -471,6 +511,30 @@ def render_markdown(days, sorted_days, cycles, period_source=""):
             L.append("- No metric has been >= {:.0f} SD on the same side for all {} nights.".format(
                 NOTABLE_SD, len(nights)))
     L.append("")
+
+    if actions:
+        rows = action_outcomes(days, sorted_days, actions)
+        L.append("## Suggested actions and what your data did since")
+        if not rows:
+            L.append("- No suggested action in the last 28 days.")
+        L.append("Each action: the day it was suggested, whether she says she did it, and the metrics "
+                 "whose 'since' average differs from the 7 days before it by >= {:.0f} SD. Timing "
+                 "only; it does not show the action caused anything.".format(NOTABLE_SD) if rows else "")
+        for r in rows:
+            did = {"all": "she did them", "some": "she did some", "none": "she did not get to them",
+                   "note": "she replied in her own words"}.get(r["status"], "no answer recorded")
+            L.append("- **{}** ({} days ago; {}; phase then {} / now {}): {}".format(
+                r["id"], r["age"], did, r["phase_then"] or "--", r["phase_now"] or "--",
+                " ".join(r["steps"].split())[:260] or "(no steps stored)"))
+            if not r["enough"]:
+                L.append("  - Too recent to compare (needs {}+ days).".format(3))
+            elif not r["moves"]:
+                L.append("  - No metric moved by {:.0f} SD or more since.".format(NOTABLE_SD))
+            else:
+                for m, b, a2, z in r["moves"]:
+                    L.append("  - {}: {} before, {} since ({} SD)".format(
+                        LABELS.get(m, m), _fmt(b, _dec(m)), _fmt(a2, _dec(m)), _fmt(z, 1, True)))
+        L.append("")
 
     metrics = [m for ms in DOMAINS.values() for m in ms]
     cmp_, cur_phase = recent_vs_baseline(days, sorted_days, metrics)

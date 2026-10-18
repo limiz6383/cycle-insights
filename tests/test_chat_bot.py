@@ -68,6 +68,36 @@ class ChatBot(unittest.TestCase):
             self.handle(msg("hello?"))
         self.assertIn("couldn't reach the model", self.sent[0])
 
+    def _two_records(self):
+        d = Path(self.tmp.name) / "ins"
+        d.mkdir()
+        (d / "2030-03-01.json").write_text(json.dumps({"insight_id": "2030-03-01", "today_steps": "a"}))
+        (d / "2030-03-02.json").write_text(json.dumps(
+            {"insight_id": "2030-03-02", "insight_text": "new", "pending_send": True}))
+        return d
+
+    def test_button_tap_stores_answer_and_releases_held_insight(self):
+        d = self._two_records()
+        with mock.patch.object(cb.pf, "INSIGHTS_DIR", d), \
+                mock.patch.object(cb, "api_call", return_value={"ok": True}), \
+                mock.patch.object(cb, "deliver_insight") as dl:
+            tag = cb.handle_callback({"id": "1", "data": "ci:2030-03-01:some",
+                                      "message": {"chat": {"id": 111}}}, 111, ARGS)
+        self.assertEqual(tag, "checkin")
+        self.assertEqual(json.loads((d / "2030-03-01.json").read_text())["followup"]["status"], "some")
+        self.assertEqual(dl.call_args[0][0].stem, "2030-03-02")
+
+    def test_typed_answer_while_checkin_open(self):
+        d = self._two_records()
+        with mock.patch.object(cb.pf, "INSIGHTS_DIR", d), mock.patch.object(cb, "deliver_insight") as dl:
+            self.assertEqual(self.handle(msg("yes, did them")), "checkin")
+        self.assertEqual(json.loads((d / "2030-03-01.json").read_text())["followup"]["status"], "all")
+        self.assertTrue(dl.called)
+
+    def test_wrong_chat_callback_is_ignored(self):
+        self.assertEqual(cb.handle_callback({"id": "1", "data": "ci:x:all",
+                                             "message": {"chat": {"id": 5}}}, 111, ARGS), "ignored")
+
     def test_chat_prompt_fills_every_placeholder(self):
         p = cb.build_chat_prompt("q?", [{"role": "user", "text": "earlier"}], "/nonexistent",
                                  insights_dir=self.tmp.name)
