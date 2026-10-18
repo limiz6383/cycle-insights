@@ -105,6 +105,16 @@ class CycleAnalysisTests(unittest.TestCase):
         self.assertIn("2030-02-10 to 2030-02-12 (3 days with data)", md)
         self.assertIn("Cycle lengths (from user-reported periods): [28, 28, 28]", md)
 
+    def test_user_log_file_supplies_spotting(self):
+        with tempfile.TemporaryDirectory() as t:
+            src, out, log = Path(t) / "d.json", Path(t) / "s.md", Path(t) / "log.json"
+            src.write_text(json.dumps(make_dump(days=100)))
+            log.write_text(json.dumps({"spotting": ["2030-02-10:2030-02-12"]}))
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "preprocess_oura.py"),
+                            "--input", str(src), "--output", str(out),
+                            "--user-log", str(log)], check=True, capture_output=True)
+            self.assertIn("2030-02-10 to 2030-02-12", out.read_text())
+
     def test_end_to_end_summary_has_sections_and_no_real_dates(self):
         with tempfile.TemporaryDirectory() as t:
             src, out = Path(t) / "d.json", Path(t) / "s.md"

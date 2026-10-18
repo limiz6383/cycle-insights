@@ -21,6 +21,7 @@ Uses Python stdlib only.
 import argparse
 import json
 import sys
+from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
 from statistics import mean, stdev
@@ -138,6 +139,22 @@ def period_days_from_tags(data):
             if rec.get("start_day"):
                 days.add(rec["start_day"])
     return sorted(days)
+
+
+def load_user_log(path):
+    """
+    Local, gitignored JSON for things Oura's API does not return, e.g.
+    {"spotting": ["2030-02-10:2030-02-12"], "not_a_period": ["2030-03-01:2030-03-02"]}.
+    Missing file is fine. Returns comma-joined range strings for each key.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {"spotting": "", "not_a_period": ""}
+    try:
+        raw = json.loads(p.read_text())
+    except ValueError as e:
+        sys.exit("{} is not valid JSON: {}".format(p, e))
+    return dict((k, ",".join(raw.get(k, []))) for k in ("spotting", "not_a_period"))
 
 
 def drop_ranges(day_list, spec):
@@ -382,6 +399,9 @@ def main():
                     help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges of spotting the user "
                          "reports that Oura's API does not return. Listed as user-reported "
                          "spotting (NOT a cycle start) and flagged on those days.")
+    ap.add_argument("--user-log", default=str(Path(__file__).resolve().parent / "user_cycle_log.json"),
+                    help="Local gitignored JSON with 'spotting' and 'not_a_period' range lists "
+                         "(see user_cycle_log.example.json). Merged with the flags above.")
     ap.add_argument("--as-of", default=None,
                     help="Build the summary as it would have looked on this date (YYYY-MM-DD). "
                          "Drops all days AFTER it and all period dates after it, so a "
@@ -391,6 +411,10 @@ def main():
                     help="Keep only the last N days ending at --as-of (default: all prior days). "
                          "Use 90 to match what a live weekly run would have had.")
     args = ap.parse_args()
+
+    log = load_user_log(args.user_log)
+    args.spotting = ",".join(x for x in (args.spotting, log["spotting"]) if x)
+    args.not_a_period = ",".join(x for x in (args.not_a_period, log["not_a_period"]) if x)
 
     data = load_data(args.input)
     days = build_daily(data)
