@@ -96,7 +96,7 @@ Not published: the development log it was extracted from, and every generated in
 
 Working end to end; **actively wrong in places, and documented as such.**
 
-The most recent finding: for its first fourteen runs the pipeline never requested Oura's `enhanced_tag` endpoint, where user-logged period days live. With no bleed dates in the summary, the model treated an empty log as an empty uterus and reasoned to an 83-day amenorrhea — for a user who had bled twice in that window. Every rule in the harness would have scored that output clean.
+The most recent finding: for its first fourteen runs the pipeline never requested Oura's `enhanced_tag` endpoint, where user-logged period days live. With no bleed dates in the summary, the model treated an empty log as an empty uterus and reasoned to prolonged amenorrhea even though periods had been logged in the app. Every rule in the harness would have scored that output clean.
 
 Two lessons, both in [METHODOLOGY.md](METHODOLOGY.md) §6: the highest-leverage fix was in the data layer rather than the prompt, and an eval that only measures rule-following will happily certify nonsense.
 

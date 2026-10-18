@@ -92,8 +92,8 @@ def period_days_from_tags(data):
     These are user-reported ground truth under UD1 — the ring cannot observe a
     bleed, the user tagged it. Reading them from the dump instead of asking the
     user to retype dates removes the failure that produced the worst output in
-    the 2026-08-11 backfill: with no bleed dates supplied, the model inferred
-    an 83-day amenorrhea from an empty log while the user had bled twice.
+    an early backfill: with no bleed dates supplied, the model inferred
+    amenorrhea from an empty log even though periods had been logged.
     """
     days = set()
     for rec in (data.get("enhanced_tag") or {}).get("data") or []:

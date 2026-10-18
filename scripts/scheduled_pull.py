@@ -40,7 +40,7 @@ SUMMARY = SCRIPTS / "oura_summary.md"
 
 # A dump missing either of these is worse than yesterday's dump: no readiness
 # means no RHR/HRV/temperature, and no enhanced_tag means no bleed dates (the
-# 83-day phantom amenorrhea in METHODOLOGY.md §6).
+# phantom-amenorrhea failure in METHODOLOGY.md §6).
 REQUIRED_ENDPOINTS = ["daily_readiness", "enhanced_tag"]
 
 
