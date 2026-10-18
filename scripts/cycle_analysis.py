@@ -32,7 +32,7 @@ SHIFT_BASE_DAYS = 6
 MIN_BASELINE_DAYS = 21   # fewer baseline days than this -> no baseline claim
 NOTABLE_SD = 1.0         # |delta| in SDs above which a change is called out
 MAX_PRESHIFT_DAYS = 16   # open cycle with no shift before this many days: provisional follicular
-MAX_CYCLE_DAYS = 60      # a gap longer than this is not treated as one cycle
+MAX_CYCLE_DAYS = 120     # a gap longer than this is not treated as one cycle (a missed log, not a cycle)
 
 # Metrics grouped by what they describe. "dir" is the direction of the typical
 # luteal-vs-follicular change in healthy regular cycles (KB15-KB19); it is only
@@ -125,12 +125,15 @@ def find_temperature_shift(days, start, end):
             # require consecutive calendar days, not a gap-bridged run
             if (_d(run[-1][0]) - _d(run[0][0])).days != SHIFT_RUN_DAYS - 1:
                 continue
-            # Persistence: the shift day plus the days after it (up to a week,
-            # whatever exists) must still average above the pre-shift reference.
-            # A 3-day blip in a noisy flat curve does not.
-            ahead = [t for _, t in series[i:i + 7] if t is not None]
-            if mean(ahead) >= ref + SHIFT_RISE_C:
-                return series[i][0]
+            # Persistence: the days 4-7 of the shift must still sit above the
+            # pre-shift reference (when at least 3 of them exist), so a 2-3 day
+            # spike in an otherwise flat curve (illness, alcohol, a bad night)
+            # is not read as a shift. With fewer later days the shift is
+            # provisional and accepted on the run alone.
+            later = [t for _, t in series[i + SHIFT_RUN_DAYS:i + 7] if t is not None]
+            if len(later) >= 3 and mean(later) < ref + SHIFT_RISE_C:
+                continue
+            return series[i][0]
     return None
 
 
@@ -149,6 +152,9 @@ def build_cycles(days, period_starts, last_day):
         if length > MAX_CYCLE_DAYS or length < 1:
             continue
         end = end_d.isoformat()
+        seen = [x for x in days if s <= x <= end]
+        if not seen or _d(min(seen)) > _d(s) + timedelta(days=7):
+            continue  # the window starts mid-cycle: no honest baseline for this cycle
         shift = find_temperature_shift(days, s, end)
         ov = (_d(shift) - timedelta(days=1)).isoformat() if shift else None
         luteal_len = None
