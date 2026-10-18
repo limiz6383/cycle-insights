@@ -90,7 +90,7 @@ Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled
 
 To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
 
-The system prompt is published at [`prompts/v3.2.md`](prompts/v3.2.md) — all twelve blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
+The system prompt is published at [`prompts/v3.3.md`](prompts/v3.3.md) — all fourteen blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
 Not published: the development log it was extracted from, and every generated insight. Both contain real biometric output.
 

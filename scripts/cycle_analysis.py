@@ -244,7 +244,15 @@ def recent_vs_baseline(days, sorted_days, metrics, recent_n=7):
     return out, cur_phase
 
 
-NIGHT_METRICS = ["temp_deviation", "RHR", "HRV", "breath_rate", "total_sleep_min", "readiness_score"]
+# Everything Oura detects that has a documented route to hormones, cycle or fueling:
+# autonomic/temperature (cycle phase), sleep amount/timing/latency/efficiency (circadian,
+# alcohol, caffeine), SpO2/breathing (illness, altitude), stress/recovery, activity load
+# (energy availability), sedentary time.
+NIGHT_METRICS = [
+    "temp_deviation", "RHR", "HRV", "breath_rate", "total_sleep_min", "readiness_score",
+    "efficiency", "sleep_latency_min", "sleep_midpoint_hr", "awake_min", "spo2_avg",
+    "stress_high_sec", "recovery_high_sec", "high_activity_min", "active_calories", "sedentary_min",
+]
 
 
 def last_nights(days, sorted_days, n=3, hold_out=7):
@@ -441,15 +449,18 @@ def render_markdown(days, sorted_days, cycles, period_source=""):
         L.append("Each cell: value (change in SD vs your baseline; baseline = same phase when 7+ earlier "
                  "days exist, else all earlier days).")
         L.append("")
-        L.append("| night | cycle day / phase | " + " | ".join(LABELS.get(m, m) for m in NIGHT_METRICS) + " |")
-        L.append("|---|---|" + "---|" * len(NIGHT_METRICS))
-        for r in nights:
+        L.append("| metric | " + " | ".join(
+            "{} (cycle day {}, {})".format(r["day"], r["cycle_day"] or "--", r["phase"] or "--")
+            for r in nights) + " |")
+        L.append("|---|" + "---|" * len(nights))
+        for m in NIGHT_METRICS:
+            if not any(m in r["cells"] for r in nights):
+                continue
             cells = []
-            for m in NIGHT_METRICS:
+            for r in nights:
                 c = r["cells"].get(m)
                 cells.append("--" if not c else "{} ({} SD)".format(_fmt(c[0], _dec(m)), _fmt(c[1], 1, True)))
-            L.append("| {} | {} / {} | {} |".format(r["day"], r["cycle_day"] or "--",
-                                                    r["phase"] or "--", " | ".join(cells)))
+            L.append("| {} | {} |".format(LABELS.get(m, m), " | ".join(cells)))
         if streaks:
             L.append("")
             L.append("- Streaks (all {} nights >= {:.0f} SD on one side): {}".format(
