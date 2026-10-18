@@ -30,3 +30,7 @@ pretotype_log.md
 # Stray backups
 *.bak-*
 *.bak
+
+# Scheduled-pull logs (scripts/scheduled_pull.py)
+logs/
+scripts/oura_data.json.tmp

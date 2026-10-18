@@ -38,6 +38,8 @@ scripts/
   backfill.py             Retrospective weekly insights over historical data
   send_insight.py         Push to Telegram, record the message id
   poll_feedback.py        Replies (or --rate) → structured feedback records
+  scheduled_pull.py       Unattended fetch + preprocess (optionally the weekly
+                            insight), for launchd/cron
   config.py               .env loader, stdlib only
   eval/
     prompt_lib.py         Shared prompt assembly + API call
@@ -45,6 +47,8 @@ scripts/
     rules/deterministic.py  Word count, citation format, banned phrases
     rules/judge.py          LLM-as-judge: NT2b, CF1, DG8, escalation
     scenarios/            One JSON per scenario
+
+scheduling/               launchd job template for scheduled_pull.py
 
 research_notes.md         The curated literature behind the knowledge base
 METHODOLOGY.md            Design, eval methodology, and limitations
@@ -61,6 +65,28 @@ python3 fetch_oura_data.py --days 180
 python3 preprocess_oura.py
 python3 generate_insight.py
 ```
+
+### Automatic pull
+
+`scripts/scheduled_pull.py` does the fetch and preprocess steps unattended, so `oura_data.json` and `oura_summary.md` are always fresh. It only replaces the old dump when readiness and period tags both came back, so an expired token leaves yesterday's data in place. Logs go to `logs/scheduled_pull.log`.
+
+It runs on your own machine, not GitHub Actions: this repo is public, so Actions logs would be too, and the generated insight is printed to stdout.
+
+macOS (daily at 08:00; runs on wake if the Mac was asleep):
+
+```bash
+REPO="$(pwd)"; PY="$(command -v python3)"; mkdir -p logs
+sed -e "s|__REPO__|$REPO|g" -e "s|__PYTHON__|$PY|g" \
+    scheduling/com.cycleinsights.oura-pull.plist \
+    > ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
+launchctl load ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
+launchctl start com.cycleinsights.oura-pull     # run once now to check
+tail logs/scheduled_pull.log
+```
+
+Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled_pull.py`
+
+To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
 
 The system prompt is published at [`prompts/v3.1.md`](prompts/v3.1.md) — all eleven blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
