@@ -45,11 +45,17 @@ class ChatBot(unittest.TestCase):
     def test_summary_commands_use_the_stats_report_not_the_model(self):
         with mock.patch.object(cb, "summary_message", return_value="STATS") as sm, \
                 mock.patch.object(cb, "call_claude") as model:
-            self.assertEqual(self.handle(msg("/weekly-summary")), "command")
-            self.assertEqual(self.handle(msg("/monthly_summary@mybot")), "command")
+            self.assertEqual(self.handle(msg("/weekly")), "command")
+            self.assertEqual(self.handle(msg("/monthly@mybot")), "command")
         self.assertEqual([c[0][0] for c in sm.call_args_list], [7, 30])
         self.assertEqual(self.sent, ["STATS", "STATS"])
         model.assert_not_called()
+
+    def test_default_replies_carry_the_quick_buttons(self):
+        with mock.patch.object(cb, "send_message") as sm:
+            cb.handle_message(msg("/help"), 111, ARGS, index={})
+        self.assertEqual(sm.call_args[1]["reply_markup"], cb.KEYBOARD)
+        self.assertIn("/weekly", cb.KEYBOARD)
 
     def test_summary_message_without_data(self):
         self.assertIn("don't have your Oura data", cb.summary_message(7, data_path="/nonexistent.json"))

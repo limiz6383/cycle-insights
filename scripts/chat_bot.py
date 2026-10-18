@@ -11,7 +11,7 @@ What it does with each message from your chat (anything from another chat is ign
     not_actionable) is stored as feedback on that insight, exactly as poll_feedback.py does.
   - A tap on a check-in button (or a typed answer while one is open) records whether you did
     yesterday's steps and then releases the insight that was held behind it.
-  - /weekly_summary (also /weekly-summary) and /monthly_summary give a stats report for the last
+  - /weekly and /monthly (also /weekly_summary, /monthly-summary) give a stats report for the last
     7 or 30 days, computed from your data with no model call. /help lists the commands; /insight
     shows the latest insight.
   - Anything else is a question. It goes to the model with prompt v3.3 in "chat" cadence:
@@ -44,12 +44,16 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 HISTORY_PATH = REPO_ROOT / ".chat_history.jsonl"
 HISTORY_TURNS = 12          # messages (both sides) passed back to the model
 CHAT_MAX_TOKENS = 700
-COMMANDS = [("weekly_summary", "Stats for the last 7 days vs the 7 before"),
-            ("monthly_summary", "Stats for the last 30 days vs the 30 before"),
+COMMANDS = [("weekly", "Your last 7 days vs the 7 before"),
+            ("monthly", "Your last 30 days vs the 30 before"),
             ("insight", "Show the latest insight"),
             ("help", "What I can do")]
+# Shown under the chat box so a tap replaces typing; Telegram keeps it until it is removed.
+KEYBOARD = json.dumps({"keyboard": [[{"text": "/weekly"}, {"text": "/monthly"}],
+                                    [{"text": "/insight"}, {"text": "/help"}]],
+                       "resize_keyboard": True, "is_persistent": True})
 PERIOD_COMMANDS = {"/weekly_summary": 7, "/weekly": 7, "/monthly_summary": 30, "/monthly": 30}
-HELP = ("/weekly_summary and /monthly_summary give your stats. Ask me anything about your data, your cycle or what to try next. "
+HELP = ("Type / to see the commands, or tap a button below. /weekly and /monthly give your stats. Ask me anything about your data, your cycle or what to try next. "
         "Reply to an insight with useful / wrong / unsafe / obvious / not_actionable "
         "and a note to rate it. /insight shows the latest insight.")
 
@@ -186,7 +190,7 @@ def handle_message(msg, allowed_chat_id, args, index=None, reply=None):
     text = (msg.get("text") or "").strip()
     if chat_id != str(allowed_chat_id) or not text:
         return "ignored"
-    reply = reply or (lambda t: send_message(t, chat_id, dry_run=args.dry_run))
+    reply = reply or (lambda t: send_message(t, chat_id, dry_run=args.dry_run, reply_markup=KEYBOARD))
 
     replied_to = (msg.get("reply_to_message") or {}).get("message_id")
     index = pf.index_by_message_id() if index is None else index

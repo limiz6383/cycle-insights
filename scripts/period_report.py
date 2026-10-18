@@ -2,8 +2,8 @@
 """
 Plain stats summary for the last N days, no model involved, so nothing in it can be invented.
 
-  python3 scripts/period_report.py --days 7      # what chat_bot.py sends for /weekly_summary
-  python3 scripts/period_report.py --days 30     # ... for /monthly_summary
+  python3 scripts/period_report.py --days 7      # what chat_bot.py sends for /weekly
+  python3 scripts/period_report.py --days 30     # ... for /monthly
 
 Compares the last N days with the N days before them, in the original units and in SDs of the
 metric's own older days, and lists the cycle phases covered, sleep-timing regularity, the
@@ -22,13 +22,26 @@ import preprocess_oura as po  # noqa: E402
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 
-REPORT_METRICS = [
-    ("Cycle-related", ["temp_deviation", "RHR", "HRV", "breath_rate"]),
-    ("Sleep", ["total_sleep_min", "efficiency", "sleep_latency_min", "awake_min", "sleep_midpoint_hr",
-               "deep_min", "REM_min"]),
-    ("Stress and oxygen", ["stress_high_sec", "recovery_high_sec", "spo2_avg"]),
-    ("Activity", ["steps", "active_calories", "high_activity_min", "sedentary_min"]),
-    ("Readiness", ["readiness_score", "sleep_score"]),
+# key -> (short name, unit, divisor, decimals)
+SHORT = {
+    "temp_deviation": ("skin temp", " °C", 1, 2), "RHR": ("sleeping HR", " bpm", 1, 1),
+    "HRV": ("HRV", " ms", 1, 0), "breath_rate": ("breathing rate", "/min", 1, 1),
+    "total_sleep_min": ("sleep", "", 1, 0), "efficiency": ("sleep efficiency", "%", 1, 0),
+    "sleep_latency_min": ("time to fall asleep", " min", 1, 0), "awake_min": ("awake in bed", " min", 1, 0),
+    "sleep_midpoint_hr": ("sleep midpoint", "", 1, 0), "deep_min": ("deep sleep", " min", 1, 0),
+    "REM_min": ("REM sleep", " min", 1, 0), "stress_high_sec": ("high-stress time", " min", 60, 0),
+    "recovery_high_sec": ("recovery time", " min", 60, 0), "spo2_avg": ("SpO2", "%", 1, 1),
+    "steps": ("steps", "", 1, 0), "active_calories": ("active calories", "", 1, 0),
+    "high_activity_min": ("high-activity time", " min", 1, 0), "sedentary_min": ("sedentary time", " min", 1, 0),
+    "readiness_score": ("readiness", "", 1, 0), "sleep_score": ("sleep score", "", 1, 0),
+}
+# Each group: headline metrics shown on one line, in this order.
+GROUPS = [
+    ("Body signals", ["RHR", "HRV", "temp_deviation", "breath_rate"]),
+    ("Sleep", ["total_sleep_min", "efficiency", "sleep_midpoint_hr"]),
+    ("Stress", ["stress_high_sec", "recovery_high_sec"]),
+    ("Activity", ["steps", "active_calories", "sedentary_min"]),
+    ("Scores", ["readiness_score", "sleep_score"]),
 ]
 
 
@@ -51,92 +64,94 @@ def _clock(v):
     return "{:d}:{:02d}".format(int(v), int(round((v - int(v)) * 60)) % 60)
 
 
-DURATION_OR_CLOCK = {"sleep_midpoint_hr", "total_sleep_min", "deep_min", "REM_min", "awake_min"}
-
-
-def _label(m):
-    label = ca.LABELS.get(m, m)
-    return label.split(" (")[0] if m in DURATION_OR_CLOCK else label
-
-
-def _fmt_val(m, v):
+def _val(m, v):
+    """A value in its short unit: 6h52, 2:35, 57.6 bpm."""
     if v is None:
         return "--"
+    name, unit, div, dec = SHORT.get(m, (m, "", 1, 1))
     if m == "sleep_midpoint_hr":
         return _clock(v)
-    if m in ("total_sleep_min", "deep_min", "REM_min", "awake_min"):
-        return "{}h{:02d}".format(int(v // 60), int(round(v % 60)) % 60) if v >= 60 else "{:.0f} min".format(v)
-    if m in ("steps", "active_calories", "stress_high_sec", "recovery_high_sec"):
-        return "{:,.0f}".format(v)
-    return "{:.{d}f}".format(v, d=ca._dec(m))
+    if m == "total_sleep_min":
+        return "{}h{:02d}".format(int(v // 60), int(round(v % 60)) % 60)
+    if m == "sedentary_min":
+        return "{:.1f} h".format(v / 60)
+    return "{:,.{d}f}{}".format(v / div, unit, d=dec)
+
+
+def _name(m):
+    return SHORT.get(m, (m,))[0]
 
 
 def build_report(days, sorted_days, n, actions=None):
     cur, prev = sorted_days[-n:], sorted_days[-2 * n:-n]
     older = sorted_days[:-n]
-    name = "Weekly" if n == 7 else "Monthly" if n == 30 else "{}-day".format(n)
-    L = ["{} summary: {} to {}".format(name, cur[0], cur[-1])]
-    have = [d for d in cur if any(days[d].get(m) is not None for m in ("RHR", "HRV", "total_sleep_min"))]
-    L.append("Nights with data: {} of {}.".format(len(have), n))
-    if len(prev) < n // 2:
-        L.append("Not enough earlier days for a comparison; showing this period only.")
-
-    phases = {}
+    title = "Your week" if n == 7 else "Your month" if n == 30 else "Last {} days".format(n)
+    L = ["{}: {} to {}".format(title, cur[0][5:], cur[-1][5:])]
+    nights = [d for d in cur if days[d].get("RHR") is not None or days[d].get("total_sleep_min") is not None]
+    ph = {}
     for d in cur:
-        phases[days[d].get("phase") or "unknown"] = phases.get(days[d].get("phase") or "unknown", 0) + 1
-    L.append("Estimated cycle phases covered: " + ", ".join(
-        "{} {} d".format(k, v) for k, v in sorted(phases.items(), key=lambda kv: -kv[1])) + ".")
-    if len(set(days[d].get("phase") for d in cur) | set(days[d].get("phase") for d in prev)) > 1 and prev:
-        L.append("The phase mix differs from the previous period, so part of any change below may be "
-                 "your cycle, not anything new.")
+        k = days[d].get("phase") or "unknown"
+        ph[k] = ph.get(k, 0) + 1
+    ph_txt = ", ".join("{} {}d".format(k.replace("no_shift", "no rise yet"), v)
+                       for k, v in sorted(ph.items(), key=lambda kv: -kv[1]))
+    L.append("Cycle (estimated): {}. Data on {} of {} days.".format(ph_txt, len(nights), n))
 
-    notable = []
-    for title, metrics in REPORT_METRICS:
-        lines = []
-        for m in metrics:
-            c = ca._vals(days, cur, m)
-            if len(c) < max(3, n // 3):
-                continue
-            p = ca._vals(days, prev, m)
-            _, sd = ca._mean_sd(ca._vals(days, older, m)) if len(ca._vals(days, older, m)) >= 21 else (None, None)
-            cm = mean(c)
-            line = "{}: {}".format(_label(m), _fmt_val(m, cm))
-            if len(p) >= max(3, n // 3):
-                pm = mean(p)
-                line += " (before: {}".format(_fmt_val(m, pm))
-                if sd:
-                    z = (cm - pm) / sd
-                    line += ", {:+.1f} SD".format(z)
-                    if abs(z) >= ca.NOTABLE_SD:
-                        notable.append("{} {} ({:+.1f} SD)".format(
-                            _label(m), "up" if z > 0 else "down", z))
-                        line += " *"
-                line += ")"
-            lines.append("- " + line)
-        if lines:
-            L.append("")
-            L.append(title)
-            L.extend(lines)
+    def stats(m):
+        c = ca._vals(days, cur, m)
+        if len(c) < max(3, n // 3):
+            return None
+        p = ca._vals(days, prev, m)
+        o = ca._vals(days, older, m)
+        _, sd = ca._mean_sd(o) if len(o) >= 21 else (None, None)
+        pm = mean(p) if len(p) >= max(3, n // 3) else None
+        z = (mean(c) - pm) / sd if (pm is not None and sd) else None
+        return mean(c), pm, z
 
-    mids = ca._vals(days, cur, "sleep_midpoint_hr")
-    if len(mids) >= 4:
-        L.append("")
-        L.append("Sleep timing varied by +/-{:.0f} min (SD of your sleep midpoint).".format(stdev(mids) * 60))
+    moves = []
+    for _, ms in GROUPS:
+        for m in ms:
+            st = stats(m)
+            if st and st[2] is not None and abs(st[2]) >= ca.NOTABLE_SD:
+                moves.append((abs(st[2]), m, st))
+    moves.sort(reverse=True)
+    L.append("")
+    if moves:
+        L.append("What changed")
+        for _, m, (c, p, z) in moves[:4]:
+            L.append("{} {}: {} (was {})".format("↑" if z > 0 else "↓", _name(m), _val(m, c), _val(m, p)))
+        if len(moves) > 4:
+            L.append("+ {} smaller moves; ask me.".format(len(moves) - 4))
+        if len(set(days[d].get("phase") for d in cur) ^ set(days[d].get("phase") for d in prev)):
+            L.append("Your cycle phase differs from last period, so some of this is probably just the cycle.")
+    else:
+        L.append("What changed: nothing moved by a full SD of your own variation. A steady period.")
 
     L.append("")
-    L.append("Moved by 1 SD or more (*): " + ("; ".join(notable) if notable else "nothing."))
+    L.append("Averages")
+    for gname, ms in GROUPS:
+        parts = []
+        for m in ms:
+            st = stats(m)
+            if st:
+                parts.append("{} {}".format(_name(m), _val(m, st[0])))
+        if parts:
+            L.append("{}: {}".format(gname, " · ".join(parts)))
+    mids = ca._vals(days, cur, "sleep_midpoint_hr")
+    if len(mids) >= 4:
+        L.append("Bedtime consistency: ±{:.0f} min".format(stdev(mids) * 60))
 
     mine = [a for a in (actions or []) if cur[0] <= a["id"] <= cur[-1]]
     if mine:
         counts = {}
         for a in mine:
-            k = {"all": "did them", "some": "did some", "none": "did not get to them"}.get(a["status"], "no answer")
+            k = {"all": "did them", "some": "did some", "none": "didn't get to them"}.get(a["status"], "no answer")
             counts[k] = counts.get(k, 0) + 1
         L.append("")
-        L.append("Suggested steps this period: {} day{}; ".format(len(mine), "" if len(mine) == 1 else "s") + ", ".join(
-            "{} {}".format(v, k) for k, v in counts.items()) + ".")
+        L.append("Steps I suggested: " + ", ".join("{} day{} {}".format(v, "" if v == 1 else "s", k)
+                                                    for k, v in counts.items()))
     L.append("")
-    L.append("Differences are descriptive and do not show cause. Ask me about anything that moved.")
+    L.append("Compared with the {} days before; a move counts when it's 1+ SD of your own usual range. "
+             "Ask me about anything here.".format(n))
     return "\n".join(L)
 
 

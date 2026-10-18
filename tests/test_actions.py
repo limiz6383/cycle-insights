@@ -68,9 +68,9 @@ class PeriodReport(unittest.TestCase):
             days, sd, _ = pr.load_days(src, str(Path(t) / "none.json"))
         week = pr.build_report(days, sd, 7)
         month = pr.build_report(days, sd, 30)
-        self.assertIn("Weekly summary: " + sd[-7], week)
-        self.assertIn("Monthly summary: " + sd[-30], month)
+        self.assertIn("Your week: " + sd[-7][5:], week)
+        self.assertIn("Your month: " + sd[-30][5:], month)
         for text in (week, month):
             self.assertIn("sleeping HR", text)
-            self.assertIn("Moved by 1 SD or more", text)
+            self.assertIn("What changed", text)
             self.assertLess(len(text), 4000)
