@@ -93,6 +93,18 @@ class CycleAnalysisTests(unittest.TestCase):
         dump["enhanced_tag"]["data"].append({"tag_type_code": "spotting", "start_day": "2030-02-10"})
         self.assertNotIn("2030-02-10", po.period_days_from_tags(dump))
 
+    def test_spotting_is_listed_but_not_a_cycle_start(self):
+        with tempfile.TemporaryDirectory() as t:
+            src, out = Path(t) / "d.json", Path(t) / "s.md"
+            src.write_text(json.dumps(make_dump(days=100)))
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "preprocess_oura.py"),
+                            "--input", str(src), "--output", str(out),
+                            "--spotting", "2030-02-10:2030-02-12"], check=True, capture_output=True)
+            md = out.read_text()
+        self.assertIn("User-reported spotting", md)
+        self.assertIn("2030-02-10 to 2030-02-12 (3 days with data)", md)
+        self.assertIn("Cycle lengths (from user-reported periods): [28, 28, 28]", md)
+
     def test_end_to_end_summary_has_sections_and_no_real_dates(self):
         with tempfile.TemporaryDirectory() as t:
             src, out = Path(t) / "d.json", Path(t) / "s.md"

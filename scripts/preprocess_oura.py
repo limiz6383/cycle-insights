@@ -313,6 +313,10 @@ def to_markdown(days, sorted_days, all_stats, cycle_info, coverage):
         lines.append(f"- Period source: {cycle_info.get('period_source', 'unspecified')}")
     else:
         lines.append("- User-reported periods: NONE AVAILABLE — absence of a log is NOT evidence of absence of a bleed. Do not infer amenorrhea from this.")
+    if cycle_info.get("spotting_days"):
+        sp = cycle_info["spotting_days"]
+        lines.append("- User-reported spotting (NOT a period start, not in Oura's API; ground truth under UD1): "
+                     "{} to {} ({} days with data)".format(sp[0], sp[-1], len(sp)))
     lines.append(f"- Biphasic temperature pattern detected: {cycle_info['biphasic_pattern_present']}")
     if cycle_info["auto_detected_luteal_rises"]:
         lines.append("- Auto-detected luteal rises (ESTIMATED — not user-confirmed):")
@@ -374,6 +378,10 @@ def main():
                     help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges whose tagged days are NOT "
                          "periods (e.g. anovulatory bleeding logged as a period). Those days are "
                          "removed before cycle starts are derived, so they don't create phantom cycles.")
+    ap.add_argument("--spotting", default="",
+                    help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges of spotting the user "
+                         "reports that Oura's API does not return. Listed as user-reported "
+                         "spotting (NOT a cycle start) and flagged on those days.")
     ap.add_argument("--as-of", default=None,
                     help="Build the summary as it would have looked on this date (YYYY-MM-DD). "
                          "Drops all days AFTER it and all period dates after it, so a "
@@ -422,11 +430,16 @@ def main():
     tagged_days = [] if args.period_dates.strip() else \
         [d for d in drop_ranges(period_days_from_tags(data), args.not_a_period)
          if not args.as_of or d <= args.as_of.strip()]
+    spot_days = [d for d in sorted_days if drop_ranges([d], args.spotting) == []] if args.spotting.strip() else []
+    for d in spot_days:
+        days[d]["spotting"] = True
+    cycle_info_spot = spot_days
     cycles = cycle_analysis.build_cycles(days, user_periods, sorted_days[-1])
     cycle_analysis.label_days(days, cycles, tagged_days)
     all_stats = compute_stats(days, sorted_days)
     cycle_info = detect_cycles(days, sorted_days, user_periods)
     cycle_info["period_source"] = period_source
+    cycle_info["spotting_days"] = cycle_info_spot
     coverage = coverage_notes(data, sorted_days)
 
     md = to_markdown(days, sorted_days, all_stats, cycle_info, coverage)
