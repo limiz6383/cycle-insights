@@ -8,9 +8,9 @@ Built by its only user, for herself.
 
 ## The problem
 
-Oura's Readiness score is built largely from resting heart rate, HRV, and temperature deviation. For most wearers that's fine. In women with low energy availability it inverts: metabolic suppression produces **low RHR and high HRV** — the exact signature Oura reads as excellent recovery ([Melin et al. 2019](https://pubmed.ncbi.nlm.nih.gov/30753098/)). The number that looks best is the one that should prompt concern.
+Oura's Readiness score is built largely from resting heart rate, HRV, and temperature deviation. For most wearers that's fine. In women with low energy availability it inverts: metabolic suppression produces **low RHR and high HRV** — the exact signature Oura reads as excellent recovery ([Melin et al. 2019](https://pubmed.ncbi.nlm.nih.gov/30632422/)). The number that looks best is the one that should prompt concern.
 
-Oura's own validation agrees. [Zhang et al. 2025](https://pubmed.ncbi.nlm.nih.gov/39889300/) (JMIR) reports that its cycle and ovulation detection is unreliable in PCOS and luteal-phase-deficiency populations — precisely the people most likely to be reading these numbers for answers.
+Oura's own validation agrees. [Thigpen et al. 2025](https://pubmed.ncbi.nlm.nih.gov/39889300/) (JMIR) cautions that its ovulation detection was not validated for, and should be interpreted with caution in, PCOS and other luteal-phase-deficiency conditions — precisely the people most likely to be reading these numbers for answers.
 
 Cycle-tracker apps don't fill the gap either: they predict from calendar history, so for irregular or absent cycles they degrade to guessing.
 
