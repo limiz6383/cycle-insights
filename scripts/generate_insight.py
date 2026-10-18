@@ -13,8 +13,8 @@ Usage:
 
   # Retrospective (backfill) — see --as-of note below
   python3 preprocess_oura.py --input oura_data.json --output /tmp/s.md \
-      --as-of 2026-04-12 --period-dates 2026-04-05,2026-05-07
-  python3 generate_insight.py --summary /tmp/s.md --as-of 2026-04-12
+      --as-of 2026-01-10 --period-dates 2026-01-03,2026-02-01
+  python3 generate_insight.py --summary /tmp/s.md --as-of 2026-01-10
 
 Writes two files per run into --out-dir:
   <date>.md    the insight, human-readable

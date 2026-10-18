@@ -14,7 +14,7 @@ Usage:
   python3 backfill.py --dry-run                    # show target dates, no API calls
   python3 backfill.py                              # generate all missing
   python3 backfill.py --limit 3                    # just the first 3
-  python3 backfill.py --period-dates 2026-04-05,2026-05-07
+  python3 backfill.py --period-dates 2026-01-03,2026-02-01
 """
 import argparse
 import json

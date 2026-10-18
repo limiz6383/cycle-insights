@@ -14,7 +14,7 @@ a markdown summary with:
 Usage:
   python3 preprocess_oura.py
   python3 preprocess_oura.py --input oura_data.json --output oura_summary.md
-  python3 preprocess_oura.py --period-dates 2026-04-03,2026-05-05
+  python3 preprocess_oura.py --period-dates 2026-01-03,2026-02-01
 
 Uses Python stdlib only.
 """
@@ -92,8 +92,8 @@ def period_days_from_tags(data):
     These are user-reported ground truth under UD1 — the ring cannot observe a
     bleed, the user tagged it. Reading them from the dump instead of asking the
     user to retype dates removes the failure that produced the worst output in
-    the 2026-08-11 backfill: with no bleed dates supplied, the model inferred
-    an 83-day amenorrhea from an empty log while the user had bled twice.
+    an early backfill: with no bleed dates supplied, the model inferred
+    amenorrhea from an empty log even though periods had been logged.
     """
     days = set()
     for rec in (data.get("enhanced_tag") or {}).get("data") or []:
