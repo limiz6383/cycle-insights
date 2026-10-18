@@ -31,36 +31,27 @@ DEFAULT_MODEL = "claude-opus-5"
 DEFAULT_MAX_TOKENS = 8000
 
 
+def default_prompt_file(prompt_version="v3.1"):
+    """prompts/<version>.md — the published prompt for that version."""
+    return REPO_ROOT / "prompts" / "{}.md".format(prompt_version)
+
+
 def load_prompt(prompt_version="v3.1", prompt_file=None):
     """
     Return the system prompt text.
 
-    With --prompt-file, read it verbatim. Otherwise extract the fenced block
-    under '### Full v3 prompt' in pretotype_log.md (v3.1 patches were edited
-    in place in the v3 block, so that block IS v3.1).
-
-    Extraction is brittle by design: once you fork v3.2, save prompts to their
-    own files under prompts/ and pass --prompt-file instead.
+    Reads prompt_file, or prompts/<prompt_version>.md when none is given. If
+    the file holds a fenced code block (as prompts/v3.1.md does, under a short
+    markdown header), the first such block is the prompt; otherwise the whole
+    file is used verbatim.
     """
-    if prompt_file:
-        path = Path(prompt_file)
-        if not path.exists():
-            sys.exit("Prompt file not found: {}".format(path))
-        return path.read_text().strip()
+    path = Path(prompt_file) if prompt_file else default_prompt_file(prompt_version)
+    if not path.exists():
+        sys.exit("Prompt file not found: {}\nPass --prompt-file to point at the prompt.".format(path))
+    text = path.read_text()
 
-    log_path = REPO_ROOT / "pretotype_log.md"
-    if not log_path.exists():
-        sys.exit("pretotype_log.md not found at {}".format(log_path))
-    text = log_path.read_text()
-
-    marker = "### Full v3 prompt"
-    idx = text.find(marker)
-    if idx == -1:
-        sys.exit("Could not find '{}' in pretotype_log.md".format(marker))
-    match = re.search(r"`{3,}\n(.+?)\n`{3,}", text[idx:], re.DOTALL)
-    if not match:
-        sys.exit("Could not extract fenced prompt block after '{}'.".format(marker))
-    return match.group(1).strip()
+    match = re.search(r"^(`{3,})[^\n]*\n(.*?)\n\1[ \t]*$", text, re.DOTALL | re.MULTILINE)
+    return (match.group(2) if match else text).strip()
 
 
 def _replace_block(text, tag, content):
