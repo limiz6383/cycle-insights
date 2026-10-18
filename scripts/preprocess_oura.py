@@ -14,7 +14,7 @@ a markdown summary with:
 Usage:
   python3 preprocess_oura.py
   python3 preprocess_oura.py --input oura_data.json --output oura_summary.md
-  python3 preprocess_oura.py --period-dates 2026-04-03,2026-05-05
+  python3 preprocess_oura.py --period-dates 2026-01-03,2026-02-01
 
 Uses Python stdlib only.
 """
