@@ -115,6 +115,31 @@ class CycleAnalysisTests(unittest.TestCase):
                             "--user-log", str(log)], check=True, capture_output=True)
             self.assertIn("2030-02-10 to 2030-02-12", out.read_text())
 
+    def test_last_nights_flags_a_streak_not_a_single_night(self):
+        dump = make_dump(days=100, ovulatory=False)
+        for r in dump["sleep"]["data"][-3:]:
+            r["average_hrv"] = 30                  # three low nights in a row
+        days, sd, _ = analyse(dump)
+        rows, streaks = ca.last_nights(days, sd)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(streaks.get("HRV"), "below")
+        dump = make_dump(days=100, ovulatory=False)
+        dump["sleep"]["data"][-2]["average_hrv"] = 30   # one low night only
+        days, sd, _ = analyse(dump)
+        self.assertNotIn("HRV", ca.last_nights(days, sd)[1])
+
+    def test_prompt_gets_cadence_and_recent_insights(self):
+        sys.path.insert(0, str(ROOT / "scripts" / "eval"))
+        import prompt_lib
+        base = prompt_lib.load_prompt("v3.2")
+        out = prompt_lib.inject_user_data(base, oura_summary="x", recent_insights="[2030-01-01] steady",
+                                          cadence="daily")
+        self.assertIn("[2030-01-01] steady", out)
+        self.assertRegex(out, r"<cadence>\ndaily\n</cadence>")
+        self.assertIn("UD4", out)
+        old = prompt_lib.load_prompt("v3.1")      # older prompts have neither block
+        prompt_lib.inject_user_data(old, oura_summary="x", cadence="daily")
+
     def test_end_to_end_summary_has_sections_and_no_real_dates(self):
         with tempfile.TemporaryDirectory() as t:
             src, out = Path(t) / "d.json", Path(t) / "s.md"

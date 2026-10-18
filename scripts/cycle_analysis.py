@@ -243,6 +243,49 @@ def recent_vs_baseline(days, sorted_days, metrics, recent_n=7):
     return out, cur_phase
 
 
+NIGHT_METRICS = ["temp_deviation", "RHR", "HRV", "breath_rate", "total_sleep_min", "readiness_score"]
+
+
+def last_nights(days, sorted_days, n=3, hold_out=7):
+    """
+    The last n nights, each metric as a value and a z-score against the user's
+    baseline: same-phase earlier days when the phase is known and there are 7+,
+    else all days older than the last hold_out. Single nights are noisy, so the
+    table also reports how many of the n nights sit on the same side of the
+    baseline by at least 1 SD (a streak is a pattern, one night is not).
+    Returns (rows, streaks).
+    """
+    older = sorted_days[:-hold_out] if len(sorted_days) > hold_out + MIN_BASELINE_DAYS else []
+    if not older:
+        return [], {}
+    out = []
+    pool_all = {}
+    for m in NIGHT_METRICS:
+        pool_all[m] = _mean_sd(_vals(days, older, m))
+    for day in sorted_days[-n:]:
+        ph = days[day].get("phase")
+        same = [x for x in older if ph and ph != "no_shift" and days[x].get("phase") == ph]
+        row = {"day": day, "cycle_day": days[day].get("cycle_day"), "phase": ph, "cells": {}}
+        for m in NIGHT_METRICS:
+            v = days[day].get(m)
+            if v is None:
+                continue
+            sv = _vals(days, same, m)
+            mu, sd = _mean_sd(sv) if len(sv) >= 7 else pool_all[m]
+            z = (v - mu) / sd if sd else None
+            row["cells"][m] = (v, z, "same-phase" if len(sv) >= 7 else "all-days")
+        out.append(row)
+    streaks = {}
+    for m in NIGHT_METRICS:
+        zs = [r["cells"][m][1] for r in out if m in r["cells"] and r["cells"][m][1] is not None]
+        if len(zs) == n:
+            if all(z >= NOTABLE_SD for z in zs):
+                streaks[m] = "above"
+            elif all(z <= -NOTABLE_SD for z in zs):
+                streaks[m] = "below"
+    return out, streaks
+
+
 def slope_per_week(days, sorted_days, metric, n=28):
     """Least-squares slope of the last n days, per 7 days. None if <14 points."""
     pts = [(i, days[x].get(metric)) for i, x in enumerate(sorted_days[-n:])
@@ -388,6 +431,34 @@ def render_markdown(days, sorted_days, cycles, period_source=""):
                  "days of a cycle with no detected shift.".format(MENSES_DAYS))
     L.append("")
 
+    nights, streaks = last_nights(days, sorted_days)
+    L.append("## Last 3 nights (single nights are noisy; a streak is a pattern)")
+    if not nights:
+        L.append("- Not enough earlier data for a nightly comparison.")
+    else:
+        L.append("Each cell: value (change in SD vs your baseline; baseline = same phase when 7+ earlier "
+                 "days exist, else all earlier days).")
+        L.append("")
+        L.append("| night | cycle day / phase | " + " | ".join(LABELS.get(m, m) for m in NIGHT_METRICS) + " |")
+        L.append("|---|---|" + "---|" * len(NIGHT_METRICS))
+        for r in nights:
+            cells = []
+            for m in NIGHT_METRICS:
+                c = r["cells"].get(m)
+                cells.append("--" if not c else "{} ({} SD)".format(_fmt(c[0], _dec(m)), _fmt(c[1], 1, True)))
+            L.append("| {} | {} / {} | {} |".format(r["day"], r["cycle_day"] or "--",
+                                                    r["phase"] or "--", " | ".join(cells)))
+        if streaks:
+            L.append("")
+            L.append("- Streaks (all {} nights >= {:.0f} SD on one side): {}".format(
+                len(nights), NOTABLE_SD, "; ".join("{} {}".format(LABELS.get(m, m), d)
+                                                   for m, d in streaks.items())))
+        else:
+            L.append("")
+            L.append("- No metric has been >= {:.0f} SD on the same side for all {} nights.".format(
+                NOTABLE_SD, len(nights)))
+    L.append("")
+
     metrics = [m for ms in DOMAINS.values() for m in ms]
     cmp_, cur_phase = recent_vs_baseline(days, sorted_days, metrics)
     L.append("## Last 7 days vs your own baseline")
@@ -435,14 +506,14 @@ def render_markdown(days, sorted_days, cycles, period_source=""):
                  "estimated ovulation; follicular = after menses to ovulation).")
         L.append("")
         cols = ["temp_deviation", "RHR", "HRV", "breath_rate", "efficiency"]
-        L.append("| cycle start | length | ovulation est. | luteal length | " +
+        L.append("| cycle start | length | ovulation est. (cycle day) | luteal length | " +
                  " | ".join("Δ " + LABELS[m] for m in cols) + " |")
         L.append("|---|---|---|---|" + "---|" * len(cols))
         for r in rows:
             c = r["cycle"]
-            L.append("| {} | {} | {} | {} | {} |".format(
+            L.append("| {} | {} | {} (day {}) | {} | {} |".format(
                 c["start"], c["length_days"] if c["complete"] else "{} (open)".format(c["days_so_far"]),
-                c["ovulation_est"], c["luteal_len"] if c["luteal_len"] is not None else "--",
+                c["ovulation_est"], (_d(c["ovulation_est"]) - _d(c["start"])).days + 1, c["luteal_len"] if c["luteal_len"] is not None else "--",
                 " | ".join(_fmt(r["deltas"].get(m), _dec(m), True) for m in cols)))
     L.append("")
 

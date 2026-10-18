@@ -50,6 +50,24 @@ def read_optional(path, label):
     return p.read_text().strip()
 
 
+def recent_insights(out_dir, label, n=7):
+    """
+    The last n insights already written to out_dir before `label`, newest first,
+    so the model can avoid repeating itself. Only the insight text is passed on
+    (the header lines are dropped). Missing folder or no files -> "".
+    """
+    d = Path(out_dir)
+    if not d.is_dir():
+        return ""
+    files = sorted((f for f in d.glob("*.md") if f.stem < label), reverse=True)[:n]
+    chunks = []
+    for f in files:
+        body = [ln for ln in f.read_text().splitlines()
+                if ln.strip() and not ln.startswith("#") and not ln.startswith("_Prompt")]
+        chunks.append("[{}] {}".format(f.stem, " ".join(body)))
+    return "\n".join(chunks)
+
+
 def summary_range(summary_text):
     """Pull the '_Generated from X to Y_' line so the record says what it saw."""
     for line in summary_text.splitlines():
@@ -70,6 +88,9 @@ def main():
                     help="Inline user-reported context (overrides --context-file).")
     ap.add_argument("--query", default="",
                     help="Specific question. Empty = default weekly insight (UD3).")
+    ap.add_argument("--cadence", choices=["daily", "weekly"], default="daily",
+                    help="daily (default): short, today-focused, avoids repeating recent insights; "
+                         "weekly: the longer one-pattern insight.")
     ap.add_argument("--prompt-version", default="v3.2", help="Label recorded in the run record; also picks prompts/<version>.md.")
     ap.add_argument("--prompt-file", default=None,
                     help="Read the system prompt from this file (default: prompts/<prompt-version>.md).")
@@ -90,18 +111,23 @@ def main():
     oura_summary = summary_path.read_text().strip()
     context = args.context.strip() or read_optional(args.context_file, "Context")
 
+    label = args.as_of or date.today().isoformat()
     system_prompt = inject_user_data(
         load_prompt(args.prompt_version, args.prompt_file),
         oura_summary=oura_summary,
         user_reported_context=context,
         user_query=args.query,
+        recent_insights=recent_insights(args.out_dir, label),
+        cadence=args.cadence,
     )
 
+    user_turn = ("Generate today's insight per <your_job>, <daily_rules> and <output_format>."
+                 if args.cadence == "daily" else None)
     text, usage = call_claude(
-        system_prompt, model=args.model, max_tokens=args.max_tokens, dry_run=args.dry_run
+        system_prompt, model=args.model, max_tokens=args.max_tokens, dry_run=args.dry_run,
+        user_turn=user_turn,
     )
 
-    label = args.as_of or date.today().isoformat()
     print("\n" + "=" * 78)
     print("INSIGHT — {}  (prompt {}, data {})".format(
         label, args.prompt_version, summary_range(oura_summary)))
@@ -134,6 +160,7 @@ def main():
         "generated_at": date.today().isoformat(),
         "as_of": args.as_of,
         "prompt_version": args.prompt_version,
+        "cadence": args.cadence,
         "data_range": summary_range(oura_summary),
         "query": args.query,
         "user_reported_context": context,

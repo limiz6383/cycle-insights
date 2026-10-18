@@ -83,7 +83,8 @@ def _replace_block(text, tag, content):
     )
 
 
-def inject_user_data(system_prompt, oura_summary="", user_reported_context="", user_query=""):
+def inject_user_data(system_prompt, oura_summary="", user_reported_context="", user_query="",
+                     recent_insights="", cadence="weekly"):
     """
     Fill the three runtime placeholders inside <user_data>.
 
@@ -101,6 +102,13 @@ def inject_user_data(system_prompt, oura_summary="", user_reported_context="", u
     out = _replace_block(system_prompt, "oura_summary", oura_summary)
     out = _replace_block(out, "user_reported_context", user_reported_context)
     out = _replace_block(out, "user_query", user_query)
+    # v3.2+ blocks; older prompts do not have them and are left as they are.
+    if re.search(r"^<recent_insights>[ \t]*$", out, re.MULTILINE):
+        out = _replace_block(out, "recent_insights", recent_insights or "(none yet)")
+    if re.search(r"^<cadence>[ \t]*$", out, re.MULTILINE):
+        if cadence not in ("daily", "weekly"):
+            sys.exit("cadence must be 'daily' or 'weekly', got {!r}".format(cadence))
+        out = _replace_block(out, "cadence", cadence)
     return out
 
 
