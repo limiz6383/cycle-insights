@@ -12,7 +12,7 @@ In women with low energy availability — undereating relative to training load,
 
 Two things compound it:
 
-1. **Oura's own validation says so.** Zhang et al. 2025 (JMIR, PMID 39889300) reports that Oura's cycle and ovulation detection is unreliable in PCOS and luteal-phase-deficiency populations — precisely the population most likely to be looking at these numbers for answers.
+1. **Oura's own validation says so.** Thigpen et al. 2025 (JMIR, PMID 39889300) cautions that Oura's ovulation detection was not validated for, and should be interpreted with caution in, PCOS and other luteal-phase-deficiency conditions — precisely the population most likely to be looking at these numbers for answers.
 2. **Cycle-tracker apps predict from calendar history.** For irregular or absent cycles there is no history to predict from, so they degrade to guessing.
 
 This system reads the same Oura data and reframes it against the endocrinology literature, in software, where the device's defaults cannot.
@@ -114,6 +114,6 @@ An audit of the knowledge base found **two fabricated citations** — plausible 
 
 This is the most useful thing in this repository. Retrieval grounding fails silently: a fabricated citation reads exactly like a real one, and the model will reason confidently from it. Verification has to be mechanical, because a human reading a citation list cannot tell the real ones from the invented ones.
 
-**The control is not yet in place.** Of the 14 knowledge-base entries, **4 carry a machine-resolvable identifier** (KB5, KB12, KB13, KB14 — all PMIDs). The other 10 cite author, year, and journal in prose, which is enough for a human to look up and not enough for a script to check. So the planned automated verifier — resolve every PMID against PubMed, fail the build on anything that doesn't return matching metadata — currently cannot run against 10 of the 14 entries it exists to protect.
+**The control is not yet in place, but its prerequisite mostly is.** Of the 14 knowledge-base entries, **12 now carry PMIDs** for their cited sources (KB1–KB7, KB10–KB14). KB6 is a multi-source table: most of its sources have PMIDs, but O'Donnell 2015 (apparently a conference abstract) and Asarnow 2020 could not be found and are marked unverified inline. KB8 and KB9 are synthesized tables with no single source and are marked `[UNSOURCED]`; they cannot be machine-checked until each row is traced to a citation.
 
-Backfilling identifiers for all 14 is a prerequisite, not a nice-to-have. Until that lands, the audit that caught the two fabrications was a one-time manual pass, and nothing prevents a third from being introduced by the next edit.
+The backfill turned up two more citation errors, which is the argument for the verifier in miniature: the README's Melin 2019 link pointed to PMID 30753098, an unrelated atrial-fibrillation paper (the correct PMID is 30632422), and KB14 was attributed to "Zhang Y" when the paper's first author is Thigpen (Zhang is last author). The planned automated verifier — resolve every PMID against PubMed, fail the build on anything that doesn't return matching metadata — would have caught both. Until it exists, nothing prevents the next one.
