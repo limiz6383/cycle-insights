@@ -218,7 +218,10 @@ def recent_vs_baseline(days, sorted_days, metrics, recent_n=7):
     recent = sorted_days[-recent_n:]
     earlier = sorted_days[:-recent_n]
     cur_phase = days[sorted_days[-1]].get("phase")
-    same = [x for x in earlier if cur_phase and days[x].get("phase") == cur_phase]
+    # 'no_shift' on an open cycle is the cycle's own earlier days, not a separate
+    # phase to compare against, so it gets no same-phase baseline.
+    same = [x for x in earlier
+            if cur_phase and cur_phase != "no_shift" and days[x].get("phase") == cur_phase]
     out = {}
     for m in metrics:
         rv = _vals(days, recent, m)
