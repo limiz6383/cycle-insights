@@ -218,10 +218,11 @@ def recent_vs_baseline(days, sorted_days, metrics, recent_n=7):
     recent = sorted_days[-recent_n:]
     earlier = sorted_days[:-recent_n]
     cur_phase = days[sorted_days[-1]].get("phase")
-    # 'no_shift' on an open cycle is the cycle's own earlier days, not a separate
-    # phase to compare against, so it gets no same-phase baseline.
-    same = [x for x in earlier
-            if cur_phase and cur_phase != "no_shift" and days[x].get("phase") == cur_phase]
+    # A cycle with no shift yet is provisionally follicular, so its baseline is
+    # the follicular days of earlier cycles (the cycle's own days are excluded
+    # by the hold-out), not a pool of every phase.
+    base_phase = "follicular" if cur_phase == "no_shift" else cur_phase
+    same = [x for x in earlier if base_phase and days[x].get("phase") == base_phase]
     out = {}
     for m in metrics:
         rv = _vals(days, recent, m)
@@ -264,7 +265,8 @@ def last_nights(days, sorted_days, n=3, hold_out=7):
         pool_all[m] = _mean_sd(_vals(days, older, m))
     for day in sorted_days[-n:]:
         ph = days[day].get("phase")
-        same = [x for x in older if ph and ph != "no_shift" and days[x].get("phase") == ph]
+        bph = "follicular" if ph == "no_shift" else ph
+        same = [x for x in older if bph and days[x].get("phase") == bph]
         row = {"day": day, "cycle_day": days[day].get("cycle_day"), "phase": ph, "cells": {}}
         for m in NIGHT_METRICS:
             v = days[day].get(m)
