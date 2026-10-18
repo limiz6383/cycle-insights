@@ -57,3 +57,20 @@ class ActionSection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PeriodReport(unittest.TestCase):
+    def test_weekly_and_monthly_reports(self):
+        import period_report as pr
+        with tempfile.TemporaryDirectory() as t:
+            src = Path(t) / "d.json"
+            src.write_text(json.dumps(make_dump(days=130)))
+            days, sd, _ = pr.load_days(src, str(Path(t) / "none.json"))
+        week = pr.build_report(days, sd, 7)
+        month = pr.build_report(days, sd, 30)
+        self.assertIn("Weekly summary: " + sd[-7], week)
+        self.assertIn("Monthly summary: " + sd[-30], month)
+        for text in (week, month):
+            self.assertIn("sleeping HR", text)
+            self.assertIn("Moved by 1 SD or more", text)
+            self.assertLess(len(text), 4000)

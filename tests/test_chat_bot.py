@@ -42,6 +42,18 @@ class ChatBot(unittest.TestCase):
         self.assertEqual(self.handle(msg("/help")), "command")
         self.assertIn("Ask me anything", self.sent[0])
 
+    def test_summary_commands_use_the_stats_report_not_the_model(self):
+        with mock.patch.object(cb, "summary_message", return_value="STATS") as sm, \
+                mock.patch.object(cb, "call_claude") as model:
+            self.assertEqual(self.handle(msg("/weekly-summary")), "command")
+            self.assertEqual(self.handle(msg("/monthly_summary@mybot")), "command")
+        self.assertEqual([c[0][0] for c in sm.call_args_list], [7, 30])
+        self.assertEqual(self.sent, ["STATS", "STATS"])
+        model.assert_not_called()
+
+    def test_summary_message_without_data(self):
+        self.assertIn("don't have your Oura data", cb.summary_message(7, data_path="/nonexistent.json"))
+
     def test_rating_reply_is_stored_as_feedback(self):
         p = Path(self.tmp.name) / "i.json"
         p.write_text(json.dumps({"insight_id": "x", "feedback": {}}))

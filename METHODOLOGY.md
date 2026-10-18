@@ -165,3 +165,7 @@ Dietary content follows direction yes, numbers no (§4). DG3 now allows non-nume
 Each daily insight stores its **Today:** steps. The next time `send_insight.py` runs, it opens the chat with a check-in ("did you get to yesterday's steps?") and three buttons, and holds the new insight until `chat_bot.py` gets an answer (button or typed). If she never answers, the next run releases the held insight first. The answer is stored on the earlier record.
 
 The summary then gets a section, "Suggested actions and what your data did since", built from those records: for each action in the last 28 days, the metrics whose average since the action differs from the 7 days before it by at least 1 SD of her older data, with the cycle phase then and now. This is timing, not evidence of effect, and the prompt says so (DC10, CH8, DG6). It lets slow actions be revisited when a change shows up days or weeks later. Nothing is stored beyond the gitignored `insights/` records.
+
+### 8.w Weekly and monthly summaries
+
+`/weekly_summary` and `/monthly_summary` (typing `-` instead of `_` also works) reply with a stats report from `scripts/period_report.py`: the last 7 or 30 days against the same number of days before, in original units and in SDs of the metric's older days, the cycle phases covered, sleep-timing regularity, and how many suggested steps she did. The report is computed from her data with no model call, so it cannot invent anything, and it flags when the cycle phase mix differs between the two periods because that alone can move several metrics.

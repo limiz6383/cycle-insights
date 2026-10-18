@@ -41,6 +41,7 @@ scripts/
   send_insight.py         Push to Telegram, record the message id
   poll_feedback.py        Replies (or --rate) → structured feedback records
   chat_bot.py             Two-way Telegram chat: ask questions, rate insights by replying
+  period_report.py        Plain weekly / monthly stats (the /weekly_summary and /monthly_summary commands)
   scheduled_pull.py       Unattended fetch + preprocess (optionally the weekly
                             insight), for launchd/cron
   config.py               .env loader, stdlib only

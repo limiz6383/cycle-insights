@@ -11,7 +11,9 @@ What it does with each message from your chat (anything from another chat is ign
     not_actionable) is stored as feedback on that insight, exactly as poll_feedback.py does.
   - A tap on a check-in button (or a typed answer while one is open) records whether you did
     yesterday's steps and then releases the insight that was held behind it.
-  - /help lists these commands; /insight shows the latest insight.
+  - /weekly_summary (also /weekly-summary) and /monthly_summary give a stats report for the last
+    7 or 30 days, computed from your data with no model call. /help lists the commands; /insight
+    shows the latest insight.
   - Anything else is a question. It goes to the model with prompt v3.3 in "chat" cadence:
     your Oura summary (scripts/oura_summary.md, refreshed by scheduled_pull.py), the recent
     insights, and the last few turns of this conversation.
@@ -33,6 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "eval"))
 from config import REPO_ROOT, get, require  # noqa: E402
 from send_insight import api_call, deliver_insight, send_message, TELEGRAM_MAX  # noqa: E402
 import checkin  # noqa: E402
+import period_report  # noqa: E402
+import preprocess_oura  # noqa: E402
 import poll_feedback as pf  # noqa: E402
 from prompt_lib import DEFAULT_MODEL, call_claude, inject_user_data, load_prompt  # noqa: E402
 
@@ -40,7 +44,12 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 HISTORY_PATH = REPO_ROOT / ".chat_history.jsonl"
 HISTORY_TURNS = 12          # messages (both sides) passed back to the model
 CHAT_MAX_TOKENS = 700
-HELP = ("Ask me anything about your data, your cycle or what to try next. "
+COMMANDS = [("weekly_summary", "Stats for the last 7 days vs the 7 before"),
+            ("monthly_summary", "Stats for the last 30 days vs the 30 before"),
+            ("insight", "Show the latest insight"),
+            ("help", "What I can do")]
+PERIOD_COMMANDS = {"/weekly_summary": 7, "/weekly": 7, "/monthly_summary": 30, "/monthly": 30}
+HELP = ("/weekly_summary and /monthly_summary give your stats. Ask me anything about your data, your cycle or what to try next. "
         "Reply to an insight with useful / wrong / unsafe / obvious / not_actionable "
         "and a note to rate it. /insight shows the latest insight.")
 
@@ -106,6 +115,20 @@ def answer(question, history, args):
         print("[warn] model call failed: {}".format(e), file=sys.stderr)
         return "I couldn't reach the model just now. Please try again in a few minutes."
     return text.strip()[: TELEGRAM_MAX - 50]
+
+
+def summary_message(n, data_path=None, insights_dir=None):
+    """The deterministic stats report for the last n days (no model call)."""
+    path = Path(data_path or SCRIPTS_DIR / "oura_data.json")
+    if not path.exists():
+        return "I don't have your Oura data on this computer yet. Run scheduled_pull.py first."
+    try:
+        days, sd, _ = period_report.load_days(path)
+        text = period_report.build_report(
+            days, sd, n, preprocess_oura.load_actions(insights_dir or pf.INSIGHTS_DIR))
+    except SystemExit as e:
+        return str(e)
+    return text[: TELEGRAM_MAX - 50]
 
 
 def latest_insight_message():
@@ -175,8 +198,10 @@ def handle_message(msg, allowed_chat_id, args, index=None, reply=None):
             return "feedback"
 
     if text.startswith("/"):
-        cmd = text.split()[0].lower().split("@")[0]
-        if cmd in ("/start", "/help"):
+        cmd = text.split()[0].lower().split("@")[0].replace("-", "_")
+        if cmd in PERIOD_COMMANDS:
+            reply(summary_message(PERIOD_COMMANDS[cmd]))
+        elif cmd in ("/start", "/help"):
             reply(HELP)
         elif cmd == "/insight":
             reply(latest_insight_message())
@@ -246,6 +271,9 @@ def main():
     require("TELEGRAM_BOT_TOKEN")
     allowed = require("TELEGRAM_CHAT_ID", "Run: python3 send_insight.py --discover-chat-id")
     state = pf.load_state()
+    if not args.dry_run:        # fills the "/" menu in Telegram
+        api_call("setMyCommands", {"commands": json.dumps(
+            [{"command": c, "description": d} for c, d in COMMANDS])})
     print("Chat bot running. Ctrl-C to stop.")
     try:
         while True:
