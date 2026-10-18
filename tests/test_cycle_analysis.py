@@ -70,6 +70,14 @@ class CycleAnalysisTests(unittest.TestCase):
         self.assertLessEqual(sd[-1], cut)
         self.assertTrue(all(c["end"] <= cut for c in cycles))
 
+    def test_not_a_period_ranges_drop_phantom_cycle_starts(self):
+        dump = make_dump(days=120)
+        tags = po.period_days_from_tags(dump)
+        kept = po.drop_ranges(tags, "2030-02-26:2030-03-01")
+        self.assertEqual(len(po.period_starts(tags)) - 1, len(po.period_starts(kept)))
+        dump["enhanced_tag"]["data"].append({"tag_type_code": "spotting", "start_day": "2030-02-10"})
+        self.assertNotIn("2030-02-10", po.period_days_from_tags(dump))
+
     def test_end_to_end_summary_has_sections_and_no_real_dates(self):
         with tempfile.TemporaryDirectory() as t:
             src, out = Path(t) / "d.json", Path(t) / "s.md"

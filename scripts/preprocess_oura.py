@@ -131,10 +131,23 @@ def period_days_from_tags(data):
     for rec in (data.get("enhanced_tag") or {}).get("data") or []:
         code = (rec.get("tag_type_code") or "")
         name = (rec.get("custom_name") or "")
-        if "period" in code.lower() or "period" in name.lower() or "menstru" in code.lower():
+        label = (code + " " + name).lower()
+        if "spot" in label:
+            continue  # spotting is not a cycle start
+        if "period" in label or "menstru" in label:
             if rec.get("start_day"):
                 days.add(rec["start_day"])
     return sorted(days)
+
+
+def drop_ranges(day_list, spec):
+    """Remove days inside any 'START:END' range in the comma-separated spec."""
+    ranges = []
+    for part in (spec or "").split(","):
+        if part.strip():
+            a, _, b = part.strip().partition(":")
+            ranges.append((a, b or a))
+    return [d for d in day_list if not any(a <= d <= b for a, b in ranges)]
 
 
 def period_starts(period_days, max_gap_days=2):
@@ -357,6 +370,10 @@ def main():
     ap.add_argument("--period-dates", default="",
                     help="Comma-separated user-reported period start dates (YYYY-MM-DD). "
                          "If omitted, only auto-detected luteal rises will appear.")
+    ap.add_argument("--not-a-period", default="",
+                    help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges whose tagged days are NOT "
+                         "periods (e.g. anovulatory bleeding logged as a period). Those days are "
+                         "removed before cycle starts are derived, so they don't create phantom cycles.")
     ap.add_argument("--as-of", default=None,
                     help="Build the summary as it would have looked on this date (YYYY-MM-DD). "
                          "Drops all days AFTER it and all period dates after it, so a "
@@ -380,6 +397,7 @@ def main():
         period_source = "--period-dates flag"
     else:
         tagged = period_days_from_tags(data)
+        tagged = drop_ranges(tagged, args.not_a_period)
         user_periods = period_starts(tagged)
         period_source = "Oura period tags ({} tagged days)".format(len(tagged))
 
@@ -402,7 +420,8 @@ def main():
         sorted_days = sorted_days[-args.window:]
         days = {d: days[d] for d in sorted_days}
     tagged_days = [] if args.period_dates.strip() else \
-        [d for d in period_days_from_tags(data) if not args.as_of or d <= args.as_of.strip()]
+        [d for d in drop_ranges(period_days_from_tags(data), args.not_a_period)
+         if not args.as_of or d <= args.as_of.strip()]
     cycles = cycle_analysis.build_cycles(days, user_periods, sorted_days[-1])
     cycle_analysis.label_days(days, cycles, tagged_days)
     all_stats = compute_stats(days, sorted_days)
