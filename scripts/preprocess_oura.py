@@ -25,6 +25,8 @@ from collections import defaultdict
 from datetime import datetime
 from statistics import mean, stdev
 
+import cycle_analysis
+
 
 METRICS = [
     "RHR", "lowest_HR", "HRV",
@@ -33,12 +35,28 @@ METRICS = [
     "sleep_score", "readiness_score",
     "steps", "active_calories", "high_activity_min", "med_activity_min",
     "stress_high_sec", "recovery_high_sec",
+    # Previously fetched or available but never summarised:
+    "sleep_latency_min", "awake_min", "restless_periods", "sleep_midpoint_hr",
+    "spo2_avg", "breathing_disturbance_index", "sedentary_min",
 ]
 
 
 def load_data(path):
     with open(path) as f:
         return json.load(f)
+
+
+def _sleep_midpoint_hr(rec):
+    """Clock hour (local, from the record's own timestamps) at the midpoint of the main sleep.
+    Hours before noon are shifted by +24 so a midnight crossing doesn't split the average."""
+    try:
+        a = datetime.fromisoformat(rec["bedtime_start"])
+        b = datetime.fromisoformat(rec["bedtime_end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    mid = a + (b - a) / 2
+    hr = mid.hour + mid.minute / 60
+    return round(hr + 24 if hr < 12 else hr, 2)
 
 
 def build_daily(data):
@@ -60,6 +78,8 @@ def build_daily(data):
         d["active_calories"] = r.get("active_calories")
         d["high_activity_min"] = round((r.get("high_activity_time") or 0) / 60, 1)
         d["med_activity_min"] = round((r.get("medium_activity_time") or 0) / 60, 1)
+        if r.get("sedentary_time") is not None:
+            d["sedentary_min"] = round(r["sedentary_time"] / 60)
 
     sleep_by_day = defaultdict(list)
     for r in data.get("sleep", {}).get("data", []) or []:
@@ -76,6 +96,18 @@ def build_daily(data):
         d["light_min"] = round((main.get("light_sleep_duration") or 0) / 60)
         d["efficiency"] = main.get("efficiency")
         d["breath_rate"] = round(main["average_breath"], 2) if main.get("average_breath") is not None else None
+        if main.get("latency") is not None:
+            d["sleep_latency_min"] = round(main["latency"] / 60, 1)
+        if main.get("awake_time") is not None:
+            d["awake_min"] = round(main["awake_time"] / 60)
+        d["restless_periods"] = main.get("restless_periods")
+        d["sleep_midpoint_hr"] = _sleep_midpoint_hr(main)
+
+    for r in data.get("daily_spo2", {}).get("data", []) or []:
+        d = days.setdefault(r["day"], {})
+        pct = r.get("spo2_percentage")
+        d["spo2_avg"] = pct.get("average") if isinstance(pct, dict) else None
+        d["breathing_disturbance_index"] = r.get("breathing_disturbance_index")
 
     for r in data.get("daily_stress", {}).get("data", []) or []:
         d = days.setdefault(r["day"], {})
@@ -369,12 +401,17 @@ def main():
     if args.window:
         sorted_days = sorted_days[-args.window:]
         days = {d: days[d] for d in sorted_days}
+    tagged_days = [] if args.period_dates.strip() else \
+        [d for d in period_days_from_tags(data) if not args.as_of or d <= args.as_of.strip()]
+    cycles = cycle_analysis.build_cycles(days, user_periods, sorted_days[-1])
+    cycle_analysis.label_days(days, cycles, tagged_days)
     all_stats = compute_stats(days, sorted_days)
     cycle_info = detect_cycles(days, sorted_days, user_periods)
     cycle_info["period_source"] = period_source
     coverage = coverage_notes(data, sorted_days)
 
     md = to_markdown(days, sorted_days, all_stats, cycle_info, coverage)
+    md += "\n" + cycle_analysis.render_markdown(days, sorted_days, cycles)
     with open(args.output, "w") as f:
         f.write(md)
     print(f"Wrote {args.output} ({len(md.splitlines())} lines, {len(sorted_days)} days)")

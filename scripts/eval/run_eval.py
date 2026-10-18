@@ -3,8 +3,8 @@
 Cycle Insights eval harness — main runner.
 
 Usage:
-  python3 run_eval.py --scenario 01_deep_ha --prompt-version v3.1
-  python3 run_eval.py --all --prompt-version v3.1
+  python3 run_eval.py --scenario 01_deep_ha --prompt-version v3.2
+  python3 run_eval.py --all --prompt-version v3.2
   python3 run_eval.py --scenario 01_deep_ha --dry-run    # don't call API; print prompt only
 
 Requires:
@@ -13,7 +13,7 @@ Requires:
 
 Scenarios are JSON files in scenarios/ — stdlib only, no extra deps.
 
-The prompt is read from prompts/<prompt-version>.md (prompts/v3.1.md by
+The prompt is read from prompts/<prompt-version>.md (prompts/v3.2.md by
 default). Override with --prompt-file to test a prompt saved elsewhere.
 """
 import argparse
@@ -54,7 +54,7 @@ def load_all_scenarios() -> list:
     return scenarios
 
 
-def load_system_prompt(prompt_version: str = "v3.1", prompt_file: str = None) -> str:
+def load_system_prompt(prompt_version: str = "v3.2", prompt_file: str = None) -> str:
     """Delegates to prompt_lib so the eval loads the same prompt production does."""
     return load_prompt(prompt_version, prompt_file)
 
@@ -175,7 +175,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--scenario", help="Scenario ID to run (e.g., 01_deep_ha)")
     ap.add_argument("--all", action="store_true", help="Run all scenarios")
-    ap.add_argument("--prompt-version", default="v3.1", help="Prompt version label (for results filename); also picks prompts/<version>.md")
+    ap.add_argument("--prompt-version", default="v3.2", help="Prompt version label (for results filename); also picks prompts/<version>.md")
     ap.add_argument("--prompt-file", default=None,
                     help="Read the system prompt from this file (default: prompts/<prompt-version>.md)")
     ap.add_argument("--dry-run", action="store_true",

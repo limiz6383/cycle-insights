@@ -34,6 +34,8 @@ scripts/
   fetch_oura_data.py      Pull raw Oura data (incl. user-tagged period days)
   preprocess_oura.py      → the summary the prompt consumes; --as-of gives a
                             no-lookahead historical slice
+  cycle_analysis.py       Cycle phase, personal baselines, per-cycle deltas
+                            (see METHODOLOGY §8)
   generate_insight.py     Product path: real data → one insight
   backfill.py             Retrospective weekly insights over historical data
   send_insight.py         Push to Telegram, record the message id
@@ -88,7 +90,7 @@ Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled
 
 To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
 
-The system prompt is published at [`prompts/v3.1.md`](prompts/v3.1.md) — all eleven blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
+The system prompt is published at [`prompts/v3.2.md`](prompts/v3.2.md) — all twelve blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
 Not published: the development log it was extracted from, and every generated insight. Both contain real biometric output.
 

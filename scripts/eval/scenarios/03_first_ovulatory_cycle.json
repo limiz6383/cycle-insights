@@ -18,7 +18,7 @@
 
   "expected_output_shape": {
     "format": "standard_insight",
-    "word_count_range": [110, 180],
+    "word_count_range": [110, 200],
     "must_include_bold_actionable_test": true,
     "must_cite_kb_inline": true
   },

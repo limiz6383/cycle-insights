@@ -70,7 +70,7 @@ def main():
                     help="Inline user-reported context (overrides --context-file).")
     ap.add_argument("--query", default="",
                     help="Specific question. Empty = default weekly insight (UD3).")
-    ap.add_argument("--prompt-version", default="v3.1", help="Label recorded in the run record; also picks prompts/<version>.md.")
+    ap.add_argument("--prompt-version", default="v3.2", help="Label recorded in the run record; also picks prompts/<version>.md.")
     ap.add_argument("--prompt-file", default=None,
                     help="Read the system prompt from this file (default: prompts/<prompt-version>.md).")
     ap.add_argument("--model", default=DEFAULT_MODEL)

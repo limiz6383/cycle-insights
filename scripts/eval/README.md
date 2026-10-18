@@ -24,7 +24,7 @@ scripts/eval/
 
 ## Running the eval
 
-Run from `scripts/eval/`. The prompt is read from `prompts/<prompt-version>.md` at the repo root, so `prompts/v3.1.md` by default.
+Run from `scripts/eval/`. The prompt is read from `prompts/<prompt-version>.md` at the repo root, so `prompts/v3.2.md` by default.
 
 ```bash
 # Check the wiring without an API key: assembles the prompt, makes no API calls
@@ -42,7 +42,7 @@ python3 run_eval.py --all --prompt-file ../../prompts/my_draft.md --prompt-versi
 
 A real run needs `pip install anthropic` and `ANTHROPIC_API_KEY` (in the environment or the repo's `.env`). In `--dry-run` every check reports FAIL, because there is no generated output to score; that is expected.
 
-`--prompt-file` takes either a bare prompt or a markdown file like `prompts/v3.1.md`, where the prompt is the first fenced code block. `--prompt-version` is the label written into the results filename.
+`--prompt-file` takes either a bare prompt or a markdown file like `prompts/v3.2.md`, where the prompt is the first fenced code block. `--prompt-version` is the label written into the results filename.
 
 ## Adding a new scenario
 

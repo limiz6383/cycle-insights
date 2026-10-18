@@ -117,3 +117,29 @@ This is the most useful thing in this repository. Retrieval grounding fails sile
 **The control is not yet in place, but its prerequisite mostly is.** Of the 14 knowledge-base entries, **12 now carry PMIDs** for their cited sources (KB1–KB7, KB10–KB14). KB6 is a multi-source table: most of its sources have PMIDs, but O'Donnell 2015 (apparently a conference abstract) and Asarnow 2020 could not be found and are marked unverified inline. KB8 and KB9 are synthesized tables with no single source and are marked `[UNSOURCED]`; they cannot be machine-checked until each row is traced to a citation.
 
 The backfill turned up two more citation errors, which is the argument for the verifier in miniature: the README's Melin 2019 link pointed to PMID 30753098, an unrelated atrial-fibrillation paper (the correct PMID is 30632422), and KB14 was attributed to "Zhang Y" when the paper's first author is Thigpen (Zhang is last author). The planned automated verifier — resolve every PMID against PubMed, fail the build on anything that doesn't return matching metadata — would have caught both. Until it exists, nothing prevents the next one.
+
+---
+
+## 8. Personalization layer (prompt v3.2)
+
+**Problem.** The weekly insight read as generic: the summary gave 90-day means and four rolling windows, so the model could say "HRV is lower than your 30-day average" but not whether that is what her own luteal phases usually look like. A luteal HRV dip, a luteal sleeping-HR rise and a luteal temperature rise are all expected in regular cycles (KB15–KB19), so without phase context the model either missed them or mislabelled them as stress.
+
+**Metric audit (what reaches the prompt).** From the Oura v2 endpoints this repo fetches, as of this change; endpoint and field names are from the API as I know it and were not re-checked against a live token:
+
+| Used before | Fetched or available but dropped before | Now used | Still dropped |
+|---|---|---|---|
+| Readiness score, temperature deviation and trend; sleep score; steps, active calories, medium/high activity minutes; sleeping avg and lowest HR, avg HRV, sleep stage minutes, efficiency, breathing rate; high-stress and recovery seconds; period tags | SpO2 and breathing disturbance index; sleep latency, awake time, restless periods, bed/wake timing; sedentary time; readiness and sleep contributor sub-scores; resilience; cardiovascular age; stress day summary; the within-night HRV and HR series | SpO2 average, breathing disturbance index, sleep latency, awake time, restless periods, sleep midpoint, sedentary minutes | Contributor sub-scores, resilience, cardiovascular age, within-night series, non-period `enhanced_tag` tags (symptoms, mood, alcohol etc. if the user logs them), workouts, VO2 max |
+
+**What was added.** `scripts/cycle_analysis.py` labels each day with cycle day and phase from the user's own period tags plus an estimated temperature shift (3 consecutive days at least 0.15 °C above the prior 6-day mean, which must persist; 0.15 °C is the criterion used in Maijala 2019, KB20, and is a detection setting here, not a clinical threshold). It then produces: the last 7 days against her own baseline and same-phase baseline in her own SDs, a per-cycle table (ovulation estimate, luteal length, luteal-minus-follicular change in temperature, HR, HRV, breathing rate, sleep efficiency), pooled phase means with how many cycles agree on direction, and a 28-day slope. No clinical threshold is introduced. `preprocess_oura.py` appends these sections; older-format summaries still work (PR0).
+
+**Literature added (KB15–KB23).** Every entry was read from the paper's abstract or full text during this change; none comes from memory. The usable evidence is healthy-women cycle physiology: luteal rises in skin temperature (about 0.2–0.3 °C), sleeping HR (about 2–4 bpm) and a lower HRV (KB15–KB19), with HRV tied to progesterone within a person (KB19). The weaker parts are flagged in the entries: HRV phase effects are inconsistent across wearable studies (KB16), breathing rate is a weak cycle signal (KB16, KB23), sleep stages do not vary by phase (KB15), and a temperature shift does not prove ovulation (KB21). All studies enrolled regular cyclers, so phase effects are not norms for women with amenorrhea, FHA or PCOS (PR7).
+
+**Gaps stated, not filled.**
+- No verified source was found for an Oura-measurable marker of energy availability beyond the existing KB4/KB6 entries (moderate evidence, not Oura-specific). The prompt does not pretend otherwise.
+- No verified wearable study of phase effects in anovulatory, HA or PCOS cycles was found. KB21 is the closest and it is Ava, not Oura.
+- Several papers have company-affiliated authors (KB16, KB17, KB20, KB21), noted in the entries.
+- Searching was limited to what could be fetched from the build environment; PubMed itself was blocked. Verification of KB15–KB23 comes from publisher and repository pages. PMIDs are given only where seen directly; the rest carry DOIs. `scripts/verify_citations.py` (planned in §7) should check all of them from a normal network.
+
+**Tests.** `tests/` holds a seeded synthetic Oura generator and unit tests: ovulation estimate near the injected day, injected luteal offsets recovered, an anovulatory series gets no shift, an injected HRV crash is flagged in SDs, the `--as-of` slice cannot see later days. No real data is used or stored. Run with `python3 -m unittest discover tests`.
+
+**Not done.** The LLM was not run against this prompt in this change (no API key in the build environment), so insight quality, word range and the new rules are untested beyond `run_eval.py --all --dry-run` assembling the prompt. The eval scenarios still use the old summary format and exercise PR0 only; scenarios with the new sections should be added from real failures, per §5.
