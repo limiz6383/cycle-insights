@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  macOS launchd job: pull Oura data every morning at 08:00.
-  Install with the commands under "Automatic pull" in README.md, which fill in
-  __REPO__ and __PYTHON__. If the Mac is asleep at 08:00, launchd runs the job
+  macOS launchd job: every morning at 08:00, pull Oura data, generate the daily
+  insight and send it to Telegram (the day's check-in on yesterday's steps goes
+  first). Install with the commands under "Automatic pull" in README.md, which
+  fill in __REPO__ and __PYTHON__ (the python inside .venv, which has the
+  anthropic package). If the Mac is asleep at 08:00, launchd runs the job
   once on wake.
 -->
 <plist version="1.0">
@@ -14,6 +16,8 @@
     <array>
         <string>__PYTHON__</string>
         <string>__REPO__/scripts/scheduled_pull.py</string>
+        <string>--insight</string>
+        <string>--send</string>
     </array>
     <key>WorkingDirectory</key>
     <string>__REPO__/scripts</string>

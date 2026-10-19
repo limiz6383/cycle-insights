@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import REPO_ROOT, get, require  # noqa: E402
+import checkin  # noqa: E402
 
 INSIGHTS_DIR = REPO_ROOT / "insights"
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -108,11 +109,13 @@ def format_message(record):
     return text
 
 
-def send_message(text, chat_id, dry_run=False):
+def send_message(text, chat_id, dry_run=False, reply_markup=None):
     if dry_run:
         print("--- DRY RUN, would send to chat {} ---\n{}".format(chat_id, text))
         return None
     params = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        params["reply_markup"] = reply_markup
     res = api_call("sendMessage", params)
     if not res.get("ok"):
         # Almost always a Markdown parse error from an underscore or bracket
@@ -134,6 +137,8 @@ def main():
     ap.add_argument("--discover-chat-id", action="store_true",
                     help="Print chat ids from recent bot messages, then exit.")
     ap.add_argument("--dry-run", action="store_true", help="Print, don't send.")
+    ap.add_argument("--no-checkin", action="store_true",
+                    help="Send the insight now even if yesterday's steps are unconfirmed.")
     args = ap.parse_args()
 
     if args.discover_chat_id:
@@ -147,14 +152,46 @@ def main():
 
     chat_id = require("TELEGRAM_CHAT_ID",
                       "Run: python3 send_insight.py --discover-chat-id")
-    message_id = send_message(format_message(record), chat_id, dry_run=args.dry_run)
+    send_or_checkin(path, chat_id, dry_run=args.dry_run, skip_checkin=args.no_checkin)
 
+
+def deliver_insight(path, chat_id, dry_run=False):
+    """Send the insight in `path` and store the Telegram linkage on its record."""
+    record = json.loads(path.read_text())
+    message_id = send_message(format_message(record), chat_id, dry_run=dry_run)
     if message_id is not None:
-        # Linkage for poll_feedback.py — without this a reply can't be traced
-        # back to the insight it rates.
+        # Linkage for poll_feedback.py / chat_bot.py — without this a reply can't be
+        # traced back to the insight it rates.
         record["telegram"] = {"chat_id": str(chat_id), "message_id": message_id}
+        record.pop("pending_send", None)
         path.write_text(json.dumps(record, indent=2))
         print("Sent {} (telegram message_id {}).".format(path.stem, message_id))
+    return message_id
+
+
+def send_or_checkin(path, chat_id, dry_run=False, skip_checkin=False):
+    """
+    Open the chat with a check-in on yesterday's steps when there is one; the insight is
+    held (pending_send) until she answers in chat_bot.py. A still-held older insight is
+    released first so nothing stays unsent for more than a day.
+    """
+    held = checkin.pending_release(INSIGHTS_DIR)
+    if held and held[0] != path and not dry_run:
+        deliver_insight(held[0], chat_id)
+    waiting = None if skip_checkin else checkin.awaiting_checkin(INSIGHTS_DIR, path.stem)
+    if not waiting:
+        return deliver_insight(path, chat_id, dry_run=dry_run)
+    prev_path, prev = waiting
+    mid = send_message(checkin.checkin_text(prev), chat_id, dry_run=dry_run,
+                       reply_markup=checkin.checkin_markup(prev_path.stem))
+    if mid is not None and not dry_run:
+        record = json.loads(path.read_text())
+        record["pending_send"] = True
+        path.write_text(json.dumps(record, indent=2))
+        prev["checkin"] = {"message_id": mid}
+        checkin.write(prev_path, prev)
+        print("Sent check-in for {}; holding {} until you answer.".format(prev_path.stem, path.stem))
+    return mid
 
 
 if __name__ == "__main__":

@@ -6,8 +6,8 @@ Default (daily): fetch the last --days of Oura data, then rebuild
 oura_summary.md. Nothing else: no Anthropic call, no Telegram message.
 
   python3 scheduled_pull.py                 # fetch + preprocess
-  python3 scheduled_pull.py --weekly        # ... + generate_insight.py
-  python3 scheduled_pull.py --weekly --send # ... + send_insight.py
+  python3 scheduled_pull.py --insight       # ... + generate_insight.py (daily cadence; --cadence weekly for the long form)
+  python3 scheduled_pull.py --insight --send # ... + send_insight.py
 
 Why local, not GitHub Actions: this repo is public, so Actions logs are
 public, and generate_insight.py prints the insight to stdout. Running here
@@ -88,19 +88,25 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--days", type=int, default=180,
                     help="Days of history to pull (default 180, same as fetch_oura_data.py).")
+    ap.add_argument("--insight", action="store_true",
+                    help="Also generate an insight (calls the Anthropic API). Cadence is daily "
+                         "unless --cadence weekly.")
+    ap.add_argument("--cadence", choices=["daily", "weekly"], default="daily")
     ap.add_argument("--weekly", action="store_true",
-                    help="Also generate this week's insight (calls the Anthropic API).")
+                    help="Alias for --insight --cadence weekly (kept for existing schedules).")
     ap.add_argument("--send", action="store_true",
-                    help="With --weekly: also push the insight to Telegram.")
+                    help="With --insight/--weekly: also push the insight to Telegram.")
     args = ap.parse_args()
-    if args.send and not args.weekly:
-        ap.error("--send needs --weekly")
+    if args.weekly:
+        args.insight, args.cadence = True, "weekly"
+    if args.send and not args.insight:
+        ap.error("--send needs --insight (or --weekly)")
 
     ok = fetch(args.days) and run("preprocess", ["preprocess_oura.py",
                                                  "--input", RAW.name,
                                                  "--output", SUMMARY.name])
-    if ok and args.weekly:
-        ok = run("generate", ["generate_insight.py"])
+    if ok and args.insight:
+        ok = run("generate", ["generate_insight.py", "--cadence", args.cadence])
     if ok and args.send:
         ok = run("send", ["send_insight.py"])
 

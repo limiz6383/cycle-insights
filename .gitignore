@@ -34,3 +34,9 @@ pretotype_log.md
 # Scheduled-pull logs (scripts/scheduled_pull.py)
 logs/
 scripts/oura_data.json.tmp
+
+# Local cycle events Oura's API does not return (spotting etc.)
+scripts/user_cycle_log.json
+
+# Telegram chat history
+.chat_history.jsonl

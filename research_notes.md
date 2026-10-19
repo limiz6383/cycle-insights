@@ -9,7 +9,7 @@ Several citations in the original 2026-05-19 draft were either fabricated or had
 
 | Original (REMOVED) | Replacement |
 |---|---|
-| Pereira-Eshraghi 2022 JCEM 107(4):e1547–e1556 — **fabricated** (real Pereira-Eshraghi 2022 paper is in F&S Reports on MRI follicle counts) | **Phylactou 2021** Clin Endocrinol 95(2):239–252, PMID 34323305 — verified, broader FHA-vs-PCOS biomarker discriminant paper |
+| Pereira-Eshraghi 2022 JCEM 107(4):e1547–e1556 — **fabricated** (real Pereira-Eshraghi 2022 paper is in F&S Reports on MRI follicle counts) | **Phylactou 2021** Clin Endocrinol 95(2):239–252, doi:10.1111/cen.14402 (the PMID previously listed here, 34323305, is a different paper) — verified, broader FHA-vs-PCOS biomarker discriminant paper |
 | Carmina 2022 J Endocr Soc on lean PCOS phenotype — **fabricated** | **Carmina & Lobo 2022 Diagnostics 12(10):2496**, PMID 36292002 / PMC9600591 — verified |
 | Ackerman 2022 Med Sci Sports Exerc on cognitive performance preserved in LEA — **not found** | CF6 reframed to cite IOC REDs 2023 (KB1) + Melin 2019 (KB4) directly |
 | O'Donnell & De Souza 2018 — **wrong year** | O'Donnell 2015 (HRV-specific) + O'Donnell & De Souza 2011 JCEM PMID 21956422 (CV consequences) |
@@ -17,7 +17,7 @@ Several citations in the original 2026-05-19 draft were either fabricated or had
 
 **Verified citations (no change needed):** Mountjoy 2023, Gordon 2017, De Souza 2010 PMID 19945961, Melin 2019, Toosy 2018 PMC6405408, Teede 2023 PMID 37589624, Yildirir 2006 PMID 17040278, Loucks 2003 PMID 12519869, Berga 2003 PMID 14556820, Areta 2021, Strock 2020 PMID 32619140, Singhal 2018 PMC5694353.
 
-**New entries to consider adding:** Phylactou 2021 (PMID 34323305), Stellingwerff 2023 CAT2 paper (PMID 37752002), Pedreira/Misra 2022 (PMC9355702) on adolescent FHA bone, Zhang 2025 (PMID 39889300) on Oura cycle validation — see KB14 in `pretotype_log.md`.
+**New entries to consider adding:** Phylactou 2021 (doi:10.1111/cen.14402; the PMID 34323305 recorded earlier belongs to a different paper), Stellingwerff 2023 CAT2 paper (PMID 37752002), Pedreira/Misra 2022 (PMC9355702) on adolescent FHA bone, Zhang 2025 (PMID 39889300) on Oura cycle validation — see KB14 in `pretotype_log.md`.
 
 **Strategic finding:** Zhang 2025 JMIR (Oura's own validation, n=1,155 cycles) explicitly admits the algorithm is unreliable in PCOS and luteal phase deficiency populations. This is Oura conceding the wedge in peer-reviewed literature — the strongest defensible angle for the project per research-analyst review.
 

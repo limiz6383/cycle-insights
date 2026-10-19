@@ -21,9 +21,12 @@ Uses Python stdlib only.
 import argparse
 import json
 import sys
+from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
 from statistics import mean, stdev
+
+import cycle_analysis
 
 
 METRICS = [
@@ -33,12 +36,45 @@ METRICS = [
     "sleep_score", "readiness_score",
     "steps", "active_calories", "high_activity_min", "med_activity_min",
     "stress_high_sec", "recovery_high_sec",
+    # Previously fetched or available but never summarised:
+    "sleep_latency_min", "awake_min", "restless_periods", "sleep_midpoint_hr",
+    "spo2_avg", "breathing_disturbance_index", "sedentary_min",
 ]
+
+
+def load_actions(insights_dir):
+    """Suggested steps (and her answers) from saved insight records. Missing folder -> []."""
+    out = []
+    d = Path(insights_dir)
+    if not d.is_dir():
+        return out
+    for f in sorted(d.glob("*.json")):
+        try:
+            rec = json.loads(f.read_text())
+        except ValueError:
+            continue
+        if rec.get("today_steps"):
+            out.append({"id": rec.get("insight_id", f.stem), "steps": rec["today_steps"],
+                        "status": (rec.get("followup") or {}).get("status")})
+    return out
 
 
 def load_data(path):
     with open(path) as f:
         return json.load(f)
+
+
+def _sleep_midpoint_hr(rec):
+    """Clock hour (local, from the record's own timestamps) at the midpoint of the main sleep.
+    Hours before noon are shifted by +24 so a midnight crossing doesn't split the average."""
+    try:
+        a = datetime.fromisoformat(rec["bedtime_start"])
+        b = datetime.fromisoformat(rec["bedtime_end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    mid = a + (b - a) / 2
+    hr = mid.hour + mid.minute / 60
+    return round(hr + 24 if hr < 12 else hr, 2)
 
 
 def build_daily(data):
@@ -60,6 +96,8 @@ def build_daily(data):
         d["active_calories"] = r.get("active_calories")
         d["high_activity_min"] = round((r.get("high_activity_time") or 0) / 60, 1)
         d["med_activity_min"] = round((r.get("medium_activity_time") or 0) / 60, 1)
+        if r.get("sedentary_time") is not None:
+            d["sedentary_min"] = round(r["sedentary_time"] / 60)
 
     sleep_by_day = defaultdict(list)
     for r in data.get("sleep", {}).get("data", []) or []:
@@ -76,6 +114,18 @@ def build_daily(data):
         d["light_min"] = round((main.get("light_sleep_duration") or 0) / 60)
         d["efficiency"] = main.get("efficiency")
         d["breath_rate"] = round(main["average_breath"], 2) if main.get("average_breath") is not None else None
+        if main.get("latency") is not None:
+            d["sleep_latency_min"] = round(main["latency"] / 60, 1)
+        if main.get("awake_time") is not None:
+            d["awake_min"] = round(main["awake_time"] / 60)
+        d["restless_periods"] = main.get("restless_periods")
+        d["sleep_midpoint_hr"] = _sleep_midpoint_hr(main)
+
+    for r in data.get("daily_spo2", {}).get("data", []) or []:
+        d = days.setdefault(r["day"], {})
+        pct = r.get("spo2_percentage")
+        d["spo2_avg"] = pct.get("average") if isinstance(pct, dict) else None
+        d["breathing_disturbance_index"] = r.get("breathing_disturbance_index")
 
     for r in data.get("daily_stress", {}).get("data", []) or []:
         d = days.setdefault(r["day"], {})
@@ -99,10 +149,39 @@ def period_days_from_tags(data):
     for rec in (data.get("enhanced_tag") or {}).get("data") or []:
         code = (rec.get("tag_type_code") or "")
         name = (rec.get("custom_name") or "")
-        if "period" in code.lower() or "period" in name.lower() or "menstru" in code.lower():
+        label = (code + " " + name).lower()
+        if "spot" in label:
+            continue  # spotting is not a cycle start
+        if "period" in label or "menstru" in label:
             if rec.get("start_day"):
                 days.add(rec["start_day"])
     return sorted(days)
+
+
+def load_user_log(path):
+    """
+    Local, gitignored JSON for things Oura's API does not return, e.g.
+    {"spotting": ["2030-02-10:2030-02-12"], "not_a_period": ["2030-03-01:2030-03-02"]}.
+    Missing file is fine. Returns comma-joined range strings for each key.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {"spotting": "", "not_a_period": ""}
+    try:
+        raw = json.loads(p.read_text())
+    except ValueError as e:
+        sys.exit("{} is not valid JSON: {}".format(p, e))
+    return dict((k, ",".join(raw.get(k, []))) for k in ("spotting", "not_a_period"))
+
+
+def drop_ranges(day_list, spec):
+    """Remove days inside any 'START:END' range in the comma-separated spec."""
+    ranges = []
+    for part in (spec or "").split(","):
+        if part.strip():
+            a, _, b = part.strip().partition(":")
+            ranges.append((a, b or a))
+    return [d for d in day_list if not any(a <= d <= b for a, b in ranges)]
 
 
 def period_starts(period_days, max_gap_days=2):
@@ -268,6 +347,10 @@ def to_markdown(days, sorted_days, all_stats, cycle_info, coverage):
         lines.append(f"- Period source: {cycle_info.get('period_source', 'unspecified')}")
     else:
         lines.append("- User-reported periods: NONE AVAILABLE — absence of a log is NOT evidence of absence of a bleed. Do not infer amenorrhea from this.")
+    if cycle_info.get("spotting_days"):
+        sp = cycle_info["spotting_days"]
+        lines.append("- User-reported spotting (NOT a period start, not in Oura's API; ground truth under UD1): "
+                     "{} to {} ({} days with data)".format(sp[0], sp[-1], len(sp)))
     lines.append(f"- Biphasic temperature pattern detected: {cycle_info['biphasic_pattern_present']}")
     if cycle_info["auto_detected_luteal_rises"]:
         lines.append("- Auto-detected luteal rises (ESTIMATED — not user-confirmed):")
@@ -325,6 +408,20 @@ def main():
     ap.add_argument("--period-dates", default="",
                     help="Comma-separated user-reported period start dates (YYYY-MM-DD). "
                          "If omitted, only auto-detected luteal rises will appear.")
+    ap.add_argument("--not-a-period", default="",
+                    help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges whose tagged days are NOT "
+                         "periods (e.g. anovulatory bleeding logged as a period). Those days are "
+                         "removed before cycle starts are derived, so they don't create phantom cycles.")
+    ap.add_argument("--spotting", default="",
+                    help="Comma-separated YYYY-MM-DD:YYYY-MM-DD ranges of spotting the user "
+                         "reports that Oura's API does not return. Listed as user-reported "
+                         "spotting (NOT a cycle start) and flagged on those days.")
+    ap.add_argument("--user-log", default=str(Path(__file__).resolve().parent / "user_cycle_log.json"),
+                    help="Local gitignored JSON with 'spotting' and 'not_a_period' range lists "
+                         "(see user_cycle_log.example.json). Merged with the flags above.")
+    ap.add_argument("--insights-dir", default=str(Path(__file__).resolve().parent.parent / "insights"),
+                    help="Folder of past insight records; their suggested steps and answers are "
+                         "compared with the data that followed.")
     ap.add_argument("--as-of", default=None,
                     help="Build the summary as it would have looked on this date (YYYY-MM-DD). "
                          "Drops all days AFTER it and all period dates after it, so a "
@@ -334,6 +431,10 @@ def main():
                     help="Keep only the last N days ending at --as-of (default: all prior days). "
                          "Use 90 to match what a live weekly run would have had.")
     args = ap.parse_args()
+
+    log = load_user_log(args.user_log)
+    args.spotting = ",".join(x for x in (args.spotting, log["spotting"]) if x)
+    args.not_a_period = ",".join(x for x in (args.not_a_period, log["not_a_period"]) if x)
 
     data = load_data(args.input)
     days = build_daily(data)
@@ -348,6 +449,7 @@ def main():
         period_source = "--period-dates flag"
     else:
         tagged = period_days_from_tags(data)
+        tagged = drop_ranges(tagged, args.not_a_period)
         user_periods = period_starts(tagged)
         period_source = "Oura period tags ({} tagged days)".format(len(tagged))
 
@@ -369,12 +471,24 @@ def main():
     if args.window:
         sorted_days = sorted_days[-args.window:]
         days = {d: days[d] for d in sorted_days}
+    tagged_days = [] if args.period_dates.strip() else \
+        [d for d in drop_ranges(period_days_from_tags(data), args.not_a_period)
+         if not args.as_of or d <= args.as_of.strip()]
+    spot_days = [d for d in sorted_days if drop_ranges([d], args.spotting) == []] if args.spotting.strip() else []
+    for d in spot_days:
+        days[d]["spotting"] = True
+    cycle_info_spot = spot_days
+    cycles = cycle_analysis.build_cycles(days, user_periods, sorted_days[-1])
+    cycle_analysis.label_days(days, cycles, tagged_days)
     all_stats = compute_stats(days, sorted_days)
     cycle_info = detect_cycles(days, sorted_days, user_periods)
     cycle_info["period_source"] = period_source
+    cycle_info["spotting_days"] = cycle_info_spot
     coverage = coverage_notes(data, sorted_days)
 
     md = to_markdown(days, sorted_days, all_stats, cycle_info, coverage)
+    md += "\n" + cycle_analysis.render_markdown(days, sorted_days, cycles,
+                                                actions=load_actions(args.insights_dir))
     with open(args.output, "w") as f:
         f.write(md)
     print(f"Wrote {args.output} ({len(md.splitlines())} lines, {len(sorted_days)} days)")

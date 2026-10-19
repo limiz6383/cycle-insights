@@ -31,17 +31,17 @@ DEFAULT_MODEL = "claude-opus-5"
 DEFAULT_MAX_TOKENS = 8000
 
 
-def default_prompt_file(prompt_version="v3.1"):
+def default_prompt_file(prompt_version="v3.3"):
     """prompts/<version>.md — the published prompt for that version."""
     return REPO_ROOT / "prompts" / "{}.md".format(prompt_version)
 
 
-def load_prompt(prompt_version="v3.1", prompt_file=None):
+def load_prompt(prompt_version="v3.3", prompt_file=None):
     """
     Return the system prompt text.
 
     Reads prompt_file, or prompts/<prompt_version>.md when none is given. If
-    the file holds a fenced code block (as prompts/v3.1.md does, under a short
+    the file holds a fenced code block (as prompts/v3.3.md does, under a short
     markdown header), the first such block is the prompt; otherwise the whole
     file is used verbatim.
     """
@@ -83,7 +83,8 @@ def _replace_block(text, tag, content):
     )
 
 
-def inject_user_data(system_prompt, oura_summary="", user_reported_context="", user_query=""):
+def inject_user_data(system_prompt, oura_summary="", user_reported_context="", user_query="",
+                     recent_insights="", cadence="weekly", conversation=""):
     """
     Fill the three runtime placeholders inside <user_data>.
 
@@ -101,6 +102,15 @@ def inject_user_data(system_prompt, oura_summary="", user_reported_context="", u
     out = _replace_block(system_prompt, "oura_summary", oura_summary)
     out = _replace_block(out, "user_reported_context", user_reported_context)
     out = _replace_block(out, "user_query", user_query)
+    # v3.2+ blocks; older prompts do not have them and are left as they are.
+    if re.search(r"^<recent_insights>[ \t]*$", out, re.MULTILINE):
+        out = _replace_block(out, "recent_insights", recent_insights or "(none yet)")
+    if re.search(r"^<cadence>[ \t]*$", out, re.MULTILINE):
+        if cadence not in ("daily", "weekly", "chat"):
+            sys.exit("cadence must be 'daily', 'weekly' or 'chat', got {!r}".format(cadence))
+        out = _replace_block(out, "cadence", cadence)
+    if re.search(r"^<conversation>[ \t]*$", out, re.MULTILINE):
+        out = _replace_block(out, "conversation", conversation or "(this is the first message)")
     return out
 
 

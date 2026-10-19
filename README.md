@@ -34,10 +34,14 @@ scripts/
   fetch_oura_data.py      Pull raw Oura data (incl. user-tagged period days)
   preprocess_oura.py      → the summary the prompt consumes; --as-of gives a
                             no-lookahead historical slice
+  cycle_analysis.py       Cycle phase, personal baselines, per-cycle deltas
+                            (see METHODOLOGY §8)
   generate_insight.py     Product path: real data → one insight
   backfill.py             Retrospective weekly insights over historical data
   send_insight.py         Push to Telegram, record the message id
   poll_feedback.py        Replies (or --rate) → structured feedback records
+  chat_bot.py             Two-way Telegram chat: ask questions, rate insights by replying
+  period_report.py        Plain weekly / monthly stats (the /weekly and /monthly commands)
   scheduled_pull.py       Unattended fetch + preprocess (optionally the weekly
                             insight), for launchd/cron
   config.py               .env loader, stdlib only
@@ -48,7 +52,7 @@ scripts/
     rules/judge.py          LLM-as-judge: NT2b, CF1, DG8, escalation
     scenarios/            One JSON per scenario
 
-scheduling/               launchd job template for scheduled_pull.py
+scheduling/               launchd job templates: scheduled_pull.py (daily) and chat_bot.py (always on)
 
 research_notes.md         The curated literature behind the knowledge base
 METHODOLOGY.md            Design, eval methodology, and limitations
@@ -72,13 +76,14 @@ python3 generate_insight.py
 
 It runs on your own machine, not GitHub Actions: this repo is public, so Actions logs would be too, and the generated insight is printed to stdout.
 
-macOS (daily at 08:00; runs on wake if the Mac was asleep):
+macOS (daily at 08:00; runs on wake if the Mac was asleep). The job pulls your data, generates the daily insight with the Anthropic API and sends it to Telegram, so it needs the `.venv` python (see below) and `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env`. To pull only, remove the `--insight` and `--send` lines from the plist:
 
 ```bash
-REPO="$(pwd)"; PY="$(command -v python3)"; mkdir -p logs
+REPO="$(pwd)"; PY="$REPO/.venv/bin/python3"; mkdir -p logs
 sed -e "s|__REPO__|$REPO|g" -e "s|__PYTHON__|$PY|g" \
     scheduling/com.cycleinsights.oura-pull.plist \
     > ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
+launchctl unload ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist 2>/dev/null
 launchctl load ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
 launchctl start com.cycleinsights.oura-pull     # run once now to check
 tail logs/scheduled_pull.log
@@ -86,9 +91,24 @@ tail logs/scheduled_pull.log
 
 Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled_pull.py`
 
-To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
+### Keep the chat bot running
 
-The system prompt is published at [`prompts/v3.1.md`](prompts/v3.1.md) — all eleven blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
+`scripts/chat_bot.py` only answers while it is running. On macOS this makes it start at login and restart if it stops (use the python inside `.venv`, which has the `anthropic` package):
+
+```bash
+REPO="$(pwd)"; PY="$REPO/.venv/bin/python3"; mkdir -p logs
+sed -e "s|__REPO__|$REPO|g" -e "s|__PYTHON__|$PY|g" \
+    scheduling/com.cycleinsights.chat-bot.plist \
+    > ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist
+launchctl load ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist
+tail logs/chat_bot.out.log      # should say "Chat bot running."
+```
+
+Stop it with `launchctl unload ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist`. It cannot answer while the Mac is asleep; it catches up on waiting messages when awake.
+
+For a weekly long-form insight as well, add a second job with `--insight --cadence weekly --send`. It is not scheduled by default.
+
+The system prompt is published at [`prompts/v3.3.md`](prompts/v3.3.md) — all fifteen blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
 Not published: the development log it was extracted from, and every generated insight. Both contain real biometric output.
 

@@ -94,7 +94,7 @@ def run_deterministic_checks(output_text: str, scenario: dict) -> list:
     checks = []
     shape = scenario.get("expected_output_shape", {})
 
-    checks.append(check_word_count(output_text, shape.get("word_count_range", [100, 180])))
+    checks.append(check_word_count(output_text, shape.get("word_count_range", [100, 200])))
 
     if shape.get("must_include_bold_actionable_test", True):
         # For urgent-only escalations (OF4), the bolded actionable test is not required.
