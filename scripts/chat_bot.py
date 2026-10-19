@@ -272,6 +272,8 @@ def main():
                     help="Do not call the model, send, or write state; print what would happen.")
     args = ap.parse_args()
 
+    sys.stdout.reconfigure(line_buffering=True)   # so launchd log files fill as it runs
+    sys.stderr.reconfigure(line_buffering=True)
     require("TELEGRAM_BOT_TOKEN")
     allowed = require("TELEGRAM_CHAT_ID", "Run: python3 send_insight.py --discover-chat-id")
     state = pf.load_state()
