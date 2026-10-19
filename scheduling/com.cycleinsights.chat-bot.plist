@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd job: keep chat_bot.py running in the background.
+  Starts when you log in and restarts if it stops. Install with the commands
+  under "Keep the chat bot running" in README.md, which fill in __REPO__ and
+  __PYTHON__ (use the python inside .venv, which has the anthropic package).
+  The bot cannot answer while the Mac is asleep or switched off; it catches up
+  on waiting messages when it is awake again.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cycleinsights.chat-bot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>__REPO__/scripts/chat_bot.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__REPO__/scripts</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>__REPO__/logs/chat_bot.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/logs/chat_bot.err.log</string>
+</dict>
+</plist>

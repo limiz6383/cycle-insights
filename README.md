@@ -52,7 +52,7 @@ scripts/
     rules/judge.py          LLM-as-judge: NT2b, CF1, DG8, escalation
     scenarios/            One JSON per scenario
 
-scheduling/               launchd job template for scheduled_pull.py
+scheduling/               launchd job templates: scheduled_pull.py (daily) and chat_bot.py (always on)
 
 research_notes.md         The curated literature behind the knowledge base
 METHODOLOGY.md            Design, eval methodology, and limitations
@@ -89,6 +89,21 @@ tail logs/scheduled_pull.log
 ```
 
 Linux (cron): `0 8 * * * cd /path/to/cycle-insights/scripts && python3 scheduled_pull.py`
+
+### Keep the chat bot running
+
+`scripts/chat_bot.py` only answers while it is running. On macOS this makes it start at login and restart if it stops (use the python inside `.venv`, which has the `anthropic` package):
+
+```bash
+REPO="$(pwd)"; PY="$REPO/.venv/bin/python3"; mkdir -p logs
+sed -e "s|__REPO__|$REPO|g" -e "s|__PYTHON__|$PY|g" \
+    scheduling/com.cycleinsights.chat-bot.plist \
+    > ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist
+launchctl load ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist
+tail logs/chat_bot.out.log      # should say "Chat bot running."
+```
+
+Stop it with `launchctl unload ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist`. It cannot answer while the Mac is asleep; it catches up on waiting messages when awake.
 
 To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
 
