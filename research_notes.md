@@ -9,7 +9,7 @@ Several citations in the original 2026-05-19 draft were either fabricated or had
 
 | Original (REMOVED) | Replacement |
 |---|---|
-| Pereira-Eshraghi 2022 JCEM 107(4):e1547–e1556 — **fabricated** (real Pereira-Eshraghi 2022 paper is in F&S Reports on MRI follicle counts) | **Phylactou 2021** Clin Endocrinol 95(2):239–252, PMID 34323305 — verified, broader FHA-vs-PCOS biomarker discriminant paper |
+| Pereira-Eshraghi 2022 JCEM 107(4):e1547–e1556 — **fabricated** (real Pereira-Eshraghi 2022 paper is in F&S Reports on MRI follicle counts) | **Phylactou 2021** Clin Endocrinol 95(2):239–252, doi:10.1111/cen.14402 (the PMID previously listed here, 34323305, is a different paper) — verified, broader FHA-vs-PCOS biomarker discriminant paper |
 | Carmina 2022 J Endocr Soc on lean PCOS phenotype — **fabricated** | **Carmina & Lobo 2022 Diagnostics 12(10):2496**, PMID 36292002 / PMC9600591 — verified |
 | Ackerman 2022 Med Sci Sports Exerc on cognitive performance preserved in LEA — **not found** | CF6 reframed to cite IOC REDs 2023 (KB1) + Melin 2019 (KB4) directly |
 | O'Donnell & De Souza 2018 — **wrong year** | O'Donnell 2015 (HRV-specific) + O'Donnell & De Souza 2011 JCEM PMID 21956422 (CV consequences) |
