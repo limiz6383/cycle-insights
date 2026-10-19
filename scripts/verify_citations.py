@@ -12,7 +12,7 @@ PMID/DOI must match the entry's first-author surname and year. A mismatch or a
 record that does not exist exits non-zero. Nothing here judges whether the
 entry's *claim* matches the paper; read the paper for that.
 """
-import argparse, json, re, sys, urllib.request, urllib.parse
+import argparse, json, re, sys, time, urllib.error, urllib.request, urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,27 +39,48 @@ def structure_problems(path):
     return out
 
 
-def _get(url):
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "cycle-insights-verify"}), timeout=20) as r:
-        return json.load(r)
+def _get(url, tries=5):
+    """GET JSON, pausing between calls and backing off when the service says slow down (429)."""
+    for i in range(tries):
+        time.sleep(0.4)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "cycle-insights-verify"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or i == tries - 1:
+                raise
+            time.sleep(2 ** (i + 1))
+
+
+def _surnames(src):
+    """Every author surname written as 'Surname AB,' in the Source line (an entry can cite several papers)."""
+    names = set(re.findall(r"([A-Z][A-Za-z'\-]+) [A-Z]{1,3}\b[,.]", src))
+    first = re.match(r"\s*([A-Z][A-Za-z'\-]+)", src)
+    if first:
+        names.add(first.group(1))
+    return {n.lower() for n in names}
+
+
+def _years(src):
+    return {m.group(0) for m in re.finditer(r"\b(?:19|20)\d{2}\b", src)}
 
 
 def check_online(path):
     problems = []
     for kb, body, src in entries(path):
-        first = re.match(r"\s*([A-Z][A-Za-z'\-]+)", src)
-        year = re.search(r"\b(19|20)\d{2}\b", src)
+        names, years = _surnames(src), _years(src)
         for pmid in PMID.findall(src):
             try:
                 rec = _get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json&id=" + pmid)["result"][pmid]
-                names = " ".join(a["name"] for a in rec.get("authors", [])[:1])
+                names_rec = " ".join(a["name"] for a in rec.get("authors", [])[:1])
                 pub = rec.get("pubdate", "")
             except Exception as e:
                 problems.append("{} PMID {}: not resolved ({})".format(kb, pmid, e)); continue
-            if first and first.group(1).lower() not in names.lower():
-                problems.append("{} PMID {}: first author {!r} does not match {!r}".format(kb, pmid, names, first.group(1)))
-            if year and year.group(0) not in pub:
-                problems.append("{} PMID {}: year {} vs record {}".format(kb, pmid, year.group(0), pub))
+            if names and not any(n in names_rec.lower() for n in names):
+                problems.append("{} PMID {}: first author {!r} is not among the authors cited here".format(kb, pmid, names_rec))
+            if years and not any(y in pub for y in years):
+                problems.append("{} PMID {}: record year {} is not a year cited here".format(kb, pmid, pub))
         for doi in DOI.findall(src):
             doi = doi.rstrip(".")
             try:
@@ -68,10 +89,10 @@ def check_online(path):
                 yr = str((rec.get("issued", {}).get("date-parts") or [[None]])[0][0])
             except Exception as e:
                 problems.append("{} DOI {}: not resolved ({})".format(kb, doi, e)); continue
-            if first and first.group(1).lower() not in fam.lower():
-                problems.append("{} DOI {}: first author {!r} does not match {!r}".format(kb, doi, fam, first.group(1)))
-            if year and year.group(0) != yr and yr != "None":
-                problems.append("{} DOI {}: year {} vs record {}".format(kb, doi, year.group(0), yr))
+            if names and not any(n in fam.lower() for n in names):
+                problems.append("{} DOI {}: first author {!r} is not among the authors cited here".format(kb, doi, fam))
+            if years and yr != "None" and yr not in years:
+                problems.append("{} DOI {}: record year {} is not a year cited here".format(kb, doi, yr))
     return problems
 
 

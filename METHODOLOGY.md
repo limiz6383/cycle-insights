@@ -169,3 +169,7 @@ The summary then gets a section, "Suggested actions and what your data did since
 ### 8.w Weekly and monthly summaries
 
 `/weekly` and `/monthly` (also `/weekly_summary`, `/monthly-summary`) reply with a stats report from `scripts/period_report.py`: the last 7 or 30 days against the same number of days before, in original units and in SDs of the metric's older days, the cycle phases covered, sleep-timing regularity, and how many suggested steps she did. The report is computed from her data with no model call, so it cannot invent anything, and it flags when the cycle phase mix differs between the two periods because that alone can move several metrics.
+
+### 8.v First online citation check
+
+Run from a normal network, `verify_citations.py --online` found one real error: KB5's PMID 34323305 belongs to a different paper (first author Abou Sherif). The Phylactou 2021 paper itself is real (Clin Endocrinol 2021;95(2):239–252, DOI 10.1111/cen.14402, read on the St Andrews repository page), so KB5 now cites the DOI. The other three flags were checker limits, not citation errors: entries that cite two papers were compared against only the first author and year, and PubMed rate-limited one lookup. The checker now accepts any author or year cited in the entry, pauses between calls and retries on rate limits.

@@ -17,7 +17,7 @@ Several citations in the original 2026-05-19 draft were either fabricated or had
 
 **Verified citations (no change needed):** Mountjoy 2023, Gordon 2017, De Souza 2010 PMID 19945961, Melin 2019, Toosy 2018 PMC6405408, Teede 2023 PMID 37589624, Yildirir 2006 PMID 17040278, Loucks 2003 PMID 12519869, Berga 2003 PMID 14556820, Areta 2021, Strock 2020 PMID 32619140, Singhal 2018 PMC5694353.
 
-**New entries to consider adding:** Phylactou 2021 (PMID 34323305), Stellingwerff 2023 CAT2 paper (PMID 37752002), Pedreira/Misra 2022 (PMC9355702) on adolescent FHA bone, Zhang 2025 (PMID 39889300) on Oura cycle validation — see KB14 in `pretotype_log.md`.
+**New entries to consider adding:** Phylactou 2021 (doi:10.1111/cen.14402; the PMID 34323305 recorded earlier belongs to a different paper), Stellingwerff 2023 CAT2 paper (PMID 37752002), Pedreira/Misra 2022 (PMC9355702) on adolescent FHA bone, Zhang 2025 (PMID 39889300) on Oura cycle validation — see KB14 in `pretotype_log.md`.
 
 **Strategic finding:** Zhang 2025 JMIR (Oura's own validation, n=1,155 cycles) explicitly admits the algorithm is unreliable in PCOS and luteal phase deficiency populations. This is Oura conceding the wedge in peer-reviewed literature — the strongest defensible angle for the project per research-analyst review.
 
