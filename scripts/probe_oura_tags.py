@@ -7,7 +7,7 @@ Prints only record kinds and dates (never the token). Tries the endpoints that
 can hold user-logged entries: enhanced_tag, the older tag endpoint, and
 rest_mode_period. Anything that errors is reported, not hidden.
 
-  python3 probe_oura_tags.py --start 2026-08-20 --end 2026-09-05
+  python3 probe_oura_tags.py --start 2030-03-01 --end 2030-03-15
 """
 import argparse
 import collections
