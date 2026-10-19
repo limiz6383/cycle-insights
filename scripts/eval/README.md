@@ -17,7 +17,7 @@ scripts/eval/
   prompt_lib.py           # Shared prompt loading + assembly + API call (also used by generate_insight.py)
   run_eval.py             # Main runner — loads scenarios, calls Claude, applies checkers, writes results
   results/                # JSON results per run, timestamped (gitignored)
-    2026-06-01T1200_v3.1.json
+    2030-01-01T1200_v3.1.json
     ...
   README.md
 ```

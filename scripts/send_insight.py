@@ -17,7 +17,7 @@ Setup (one time):
 Usage:
   python3 send_insight.py --discover-chat-id
   python3 send_insight.py                      # sends the most recent insight
-  python3 send_insight.py --insight 2026-08-09 # sends a specific one
+  python3 send_insight.py --insight 2030-03-09 # sends a specific one
   python3 send_insight.py --dry-run
 """
 import argparse
@@ -133,7 +133,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--insight", default=None,
-                    help="Insight id (e.g. 2026-08-09). Default: most recent.")
+                    help="Insight id (e.g. 2030-03-09). Default: most recent.")
     ap.add_argument("--discover-chat-id", action="store_true",
                     help="Print chat ids from recent bot messages, then exit.")
     ap.add_argument("--dry-run", action="store_true", help="Print, don't send.")
