@@ -76,13 +76,14 @@ python3 generate_insight.py
 
 It runs on your own machine, not GitHub Actions: this repo is public, so Actions logs would be too, and the generated insight is printed to stdout.
 
-macOS (daily at 08:00; runs on wake if the Mac was asleep):
+macOS (daily at 08:00; runs on wake if the Mac was asleep). The job pulls your data, generates the daily insight with the Anthropic API and sends it to Telegram, so it needs the `.venv` python (see below) and `ANTHROPIC_API_KEY`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env`. To pull only, remove the `--insight` and `--send` lines from the plist:
 
 ```bash
-REPO="$(pwd)"; PY="$(command -v python3)"; mkdir -p logs
+REPO="$(pwd)"; PY="$REPO/.venv/bin/python3"; mkdir -p logs
 sed -e "s|__REPO__|$REPO|g" -e "s|__PYTHON__|$PY|g" \
     scheduling/com.cycleinsights.oura-pull.plist \
     > ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
+launchctl unload ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist 2>/dev/null
 launchctl load ~/Library/LaunchAgents/com.cycleinsights.oura-pull.plist
 launchctl start com.cycleinsights.oura-pull     # run once now to check
 tail logs/scheduled_pull.log
@@ -105,7 +106,7 @@ tail logs/chat_bot.out.log      # should say "Chat bot running."
 
 Stop it with `launchctl unload ~/Library/LaunchAgents/com.cycleinsights.chat-bot.plist`. It cannot answer while the Mac is asleep; it catches up on waiting messages when awake.
 
-To automate the weekly insight as well, add a second job with `--weekly` (generates via the Anthropic API) or `--weekly --send` (also pushes to Telegram). Neither is scheduled by default.
+For a weekly long-form insight as well, add a second job with `--insight --cadence weekly --send`. It is not scheduled by default.
 
 The system prompt is published at [`prompts/v3.3.md`](prompts/v3.3.md) — all fifteen blocks, with placeholders where runtime data is injected. Pass it with `--prompt-file`, or point that flag at your own.
 
