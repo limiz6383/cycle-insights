@@ -158,6 +158,9 @@ def main():
 def deliver_insight(path, chat_id, dry_run=False):
     """Send the insight in `path` and store the Telegram linkage on its record."""
     record = json.loads(path.read_text())
+    if record.get("held"):
+        raise SystemExit("{} was held by the self-check and is not sent. Re-run generate_insight.py "
+                         "(see the 'self_check' field in the record).".format(path.stem))
     message_id = send_message(format_message(record), chat_id, dry_run=dry_run)
     if message_id is not None:
         # Linkage for poll_feedback.py / chat_bot.py — without this a reply can't be

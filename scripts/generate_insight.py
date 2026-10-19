@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "eval"))
 import checkin  # noqa: E402
+import self_check  # noqa: E402
 from prompt_lib import (  # noqa: E402
     DEFAULT_MAX_TOKENS,
     DEFAULT_MODEL,
@@ -73,6 +74,48 @@ def recent_insights(out_dir, label, n=7):
     return "\n".join(chunks)
 
 
+def self_review(text, system_prompt, oura_summary, label, args, user_turn):
+    """
+    Check the draft, ask a reviewer pass what is wrong, and revise with those notes, up to
+    --judge-rounds times. Returns (text, log, held). held=True means a safety check still
+    fails: the record is saved but marked so send_insight.py will not send it.
+    """
+    kb = self_check.kb_section(system_prompt)
+    recent = recent_insights(args.out_dir, label)
+    log = []
+    for rnd in range(args.judge_rounds + 1):
+        checks = self_check.hard_and_soft_checks(text, oura_summary, kb, recent, args.cadence)
+        judged = None
+        try:
+            raw, _ = call_claude(self_check.JUDGE_SYSTEM, model=args.model, max_tokens=1200,
+                                 user_turn=self_check.judge_prompt(text, oura_summary, kb, recent))
+            judged = self_check.parse_judge(raw)
+        except BaseException as e:               # a reviewer outage must not block the insight
+            print("[warn] reviewer call failed: {}".format(e), file=sys.stderr)
+        failed_checks = [c for c in checks if not c["passed"]]
+        failed_judge = (judged or {}).get("failed", [])
+        hard = [c for c in failed_checks if c["severity"] == "hard"] + \
+               [{"id": k} for k in failed_judge if k in ("G1", "G4", "G5")]
+        log.append({"round": rnd, "failed_checks": [c["id"] for c in failed_checks],
+                    "failed_judge": failed_judge, "hard_failures": [h["id"] for h in hard],
+                    "reviewed": judged is not None})
+        print("[self-check round {}] failed checks: {}; reviewer: {}".format(
+            rnd, [c["id"] for c in failed_checks] or "none",
+            failed_judge if judged else "unavailable"), file=sys.stderr)
+        if not failed_checks and not failed_judge:
+            return text, log, False
+        if rnd == args.judge_rounds:
+            return text, log, bool(hard)
+        notes = self_check.critique(checks, judged)
+        text, _ = call_claude(
+            system_prompt, model=args.model, max_tokens=args.max_tokens,
+            user_turn=("{}\n\nYour previous draft:\n{}\n\nA reviewer found these problems:\n{}\n\n"
+                       "Rewrite the insight so every problem is fixed, keeping the same rules. "
+                       "Output only the corrected insight.").format(user_turn or "Generate the insight.",
+                                                                    text, notes))
+    return text, log, False
+
+
 def summary_range(summary_text):
     """Pull the '_Generated from X to Y_' line so the record says what it saw."""
     for line in summary_text.splitlines():
@@ -99,6 +142,10 @@ def main():
     ap.add_argument("--prompt-version", default="v3.3", help="Label recorded in the run record; also picks prompts/<version>.md.")
     ap.add_argument("--prompt-file", default=None,
                     help="Read the system prompt from this file (default: prompts/<prompt-version>.md).")
+    ap.add_argument("--no-judge", action="store_true",
+                    help="Skip the self-check (checks + model reviewer + revision) before saving.")
+    ap.add_argument("--judge-rounds", type=int, default=2,
+                    help="Revise a draft that fails the self-check up to this many times (default 2).")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     ap.add_argument("--as-of", default=None,
@@ -132,6 +179,11 @@ def main():
         system_prompt, model=args.model, max_tokens=args.max_tokens, dry_run=args.dry_run,
         user_turn=user_turn,
     )
+
+    judge_log, held = [], False
+    if not (args.dry_run or args.no_judge):
+        text, judge_log, held = self_review(text, system_prompt, oura_summary, label, args,
+                                            user_turn)
 
     print("\n" + "=" * 78)
     print("INSIGHT — {}  (prompt {}, data {})".format(
@@ -170,6 +222,8 @@ def main():
         "query": args.query,
         "user_reported_context": context,
         "insight_text": text,
+        "self_check": judge_log,
+        "held": held,
         "today_steps": checkin.extract_steps(text),
         "usage": usage,
         "feedback": {
@@ -182,6 +236,9 @@ def main():
     }
     (out_dir / "{}.json".format(label)).write_text(json.dumps(record, indent=2))
     print("\nWrote {}/{}.md and .json".format(out_dir, label))
+    if held:
+        print("HELD: a safety check still fails after {} revision(s); this insight will not be sent. "
+              "Run again or look at the 'self_check' field in the .json.".format(args.judge_rounds))
     print("→ Fill in the `feedback` block after you've lived with it for a week.")
 
 
