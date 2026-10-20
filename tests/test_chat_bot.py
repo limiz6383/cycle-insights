@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "scripts" / "eval"))
 import chat_bot as cb  # noqa: E402
 
-ARGS = Namespace(dry_run=False, summary="/nonexistent", prompt_version="v3.3", model="m")
+ARGS = Namespace(dry_run=False, summary="/nonexistent", prompt_version="v3.4", model="m")
 
 
 def msg(text, chat=111, reply_to=None):

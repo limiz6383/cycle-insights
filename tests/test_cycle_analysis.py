@@ -131,7 +131,7 @@ class CycleAnalysisTests(unittest.TestCase):
     def test_prompt_gets_cadence_and_recent_insights(self):
         sys.path.insert(0, str(ROOT / "scripts" / "eval"))
         import prompt_lib
-        base = prompt_lib.load_prompt("v3.3")
+        base = prompt_lib.load_prompt("v3.4")
         out = prompt_lib.inject_user_data(base, oura_summary="x", recent_insights="[2030-01-01] steady",
                                           cadence="daily")
         self.assertIn("[2030-01-01] steady", out)

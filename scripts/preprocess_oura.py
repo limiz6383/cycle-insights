@@ -293,6 +293,22 @@ def detect_cycles(days, sorted_days, user_periods=None):
     return out
 
 
+def newest_night_gap(days, sorted_days):
+    """
+    A note when the newest day has a sleep score or temperature but no detailed sleep record,
+    so HRV, sleeping HR and sleep stages are blank. Empty string when nothing is missing.
+    """
+    last = sorted_days[-1]
+    d = days[last]
+    if d.get("HRV") is None and d.get("RHR") is None and (
+            d.get("sleep_score") is not None or d.get("readiness_score") is not None):
+        return ("The newest night ({}) has a sleep score or readiness score but no detailed "
+                "sleep record, so its HRV, sleeping HR and sleep stages are missing. Oura may "
+                "not have finished processing it when the data was pulled; use the last complete "
+                "night and say so.".format(last))
+    return ""
+
+
 def coverage_notes(data, sorted_days):
     endpoints_present = [
         k for k in data.keys()
@@ -339,6 +355,8 @@ def to_markdown(days, sorted_days, all_stats, cycle_info, coverage):
     lines.append(f"- Endpoints present: {', '.join(coverage['endpoints_present'])}")
     if coverage["endpoints_missing"]:
         lines.append(f"- Endpoints missing: {', '.join(coverage['endpoints_missing'])}")
+    if coverage.get("newest_night_gap"):
+        lines.append(f"- **Data gap:** {coverage['newest_night_gap']}")
     lines.append("")
 
     lines.append("## Cycle markers")
@@ -485,6 +503,7 @@ def main():
     cycle_info["period_source"] = period_source
     cycle_info["spotting_days"] = cycle_info_spot
     coverage = coverage_notes(data, sorted_days)
+    coverage["newest_night_gap"] = newest_night_gap(days, sorted_days)
 
     md = to_markdown(days, sorted_days, all_stats, cycle_info, coverage)
     md += "\n" + cycle_analysis.render_markdown(days, sorted_days, cycles,

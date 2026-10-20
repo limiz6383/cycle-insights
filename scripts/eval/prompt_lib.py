@@ -31,17 +31,17 @@ DEFAULT_MODEL = "claude-opus-5"
 DEFAULT_MAX_TOKENS = 8000
 
 
-def default_prompt_file(prompt_version="v3.3"):
+def default_prompt_file(prompt_version="v3.4"):
     """prompts/<version>.md — the published prompt for that version."""
     return REPO_ROOT / "prompts" / "{}.md".format(prompt_version)
 
 
-def load_prompt(prompt_version="v3.3", prompt_file=None):
+def load_prompt(prompt_version="v3.4", prompt_file=None):
     """
     Return the system prompt text.
 
     Reads prompt_file, or prompts/<prompt_version>.md when none is given. If
-    the file holds a fenced code block (as prompts/v3.3.md does, under a short
+    the file holds a fenced code block (as prompts/v3.4.md does, under a short
     markdown header), the first such block is the prompt; otherwise the whole
     file is used verbatim.
     """

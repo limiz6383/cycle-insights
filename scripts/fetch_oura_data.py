@@ -69,9 +69,13 @@ ENDPOINTS = [
 
 
 def fetch(endpoint):
+    # end_date is asked for one day past today. Her dump showed the daily_* endpoints returning
+    # today's row while the detailed `sleep` endpoint (the only source of HRV, sleeping HR and
+    # sleep stages) stopped at yesterday, so the newest night's HRV was always missing. Asking
+    # for tomorrow costs nothing: no row can exist for a day that has not happened.
     qs = urllib.parse.urlencode({
         "start_date": START.isoformat(),
-        "end_date": END.isoformat(),
+        "end_date": (END + timedelta(days=1)).isoformat(),
     })
     url = f"{BASE}/{endpoint}?{qs}"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})

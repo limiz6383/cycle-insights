@@ -439,6 +439,66 @@ def action_outcomes(days, sorted_days, actions, metrics=None, max_age=28, min_af
     return out
 
 
+# Typical healthy-cycle luteal-minus-follicular values from the knowledge base (regular,
+# ovulatory, non-contraceptive women). Used only to put her own cycles in proportion.
+LITERATURE_TYPICAL = {
+    "temp_deviation": (0.30, "KB20, Oura finger temp; KB15 +0.20 to +0.24 vs menses"),
+    "RHR": (2.4, "KB15 +2.4 vs menses; KB17 +3.8 midluteal vs menses"),
+    "HRV": (-5.5, "KB15 about -5.5 to -6 ms vs menses (trend); KB18 d=-0.39"),
+}
+
+
+def hormone_readout(days, sorted_days, cycles):
+    """
+    Progesterone-linked signals (skin temperature up, sleeping HR up, HRV down in the luteal
+    phase) per cycle as a share of the literature's typical size, plus a check for the
+    low-fuel pattern (KB4/KB6) and sleep-timing regularity. Returns a list of text lines.
+    The ring does not measure hormones; these are downstream signs.
+    """
+    L = []
+    rows = per_cycle_table(days, cycles)[-3:]
+    if rows:
+        L.append("Progesterone-linked rise, luteal minus follicular, as a share of the typical "
+                 "healthy-cycle size (temp {:+.2f} C, sleeping HR {:+.1f} bpm, HRV {:+.1f} ms; "
+                 "typical values come from regularly ovulating women, KB15/KB17/KB20):".format(
+                     LITERATURE_TYPICAL["temp_deviation"][0], LITERATURE_TYPICAL["RHR"][0],
+                     LITERATURE_TYPICAL["HRV"][0]))
+        for r in rows:
+            parts, hits = [], 0
+            for m in ("temp_deviation", "RHR", "HRV"):
+                d = r["deltas"].get(m)
+                if d is None:
+                    parts.append("{} --".format(LABELS[m].split(" (")[0]))
+                    continue
+                share = d / LITERATURE_TYPICAL[m][0]
+                if share >= 0.5:
+                    hits += 1
+                parts.append("{} {} ({:.0f}% of typical)".format(
+                    LABELS[m].split(" (")[0], _fmt(d, _dec(m), True), share * 100))
+            L.append("- cycle starting {}: {}; {} of 3 at least half the typical size".format(
+                r["cycle"]["start"], "; ".join(parts), hits))
+    else:
+        L.append("Progesterone-linked rise: no cycle with enough follicular and luteal days yet.")
+
+    cmp_, _ = recent_vs_baseline(days, sorted_days, ["RHR", "HRV", "temp_deviation"])
+    if all(m in cmp_ for m in ("RHR", "HRV", "temp_deviation")):
+        z = dict((m, cmp_[m].get("phase_z", cmp_[m]["z"])) for m in cmp_)
+        flags = [z["RHR"] is not None and z["RHR"] <= -NOTABLE_SD,
+                 z["HRV"] is not None and z["HRV"] >= NOTABLE_SD,
+                 z["temp_deviation"] is not None and z["temp_deviation"] <= -NOTABLE_SD]
+        L.append("Low-fuel-type pattern check (KB4/KB6, CF1), last 7 days vs your own same-phase "
+                 "baseline: sleeping HR {} SD, HRV {} SD, skin temp {} SD; {} of 3 point that way "
+                 "(low HR, high HRV, low temp).".format(
+                     _fmt(z["RHR"], 1, True), _fmt(z["HRV"], 1, True),
+                     _fmt(z["temp_deviation"], 1, True), sum(flags)))
+    mids = [days[x].get("sleep_midpoint_hr") for x in sorted_days[-28:] if days[x].get("sleep_midpoint_hr") is not None]
+    last7 = [days[x].get("sleep_midpoint_hr") for x in sorted_days[-7:] if days[x].get("sleep_midpoint_hr") is not None]
+    if len(mids) >= 14 and len(last7) >= 4:
+        L.append("Sleep-timing regularity: last 7 nights vary by +/-{:.0f} min (SD of the midpoint) "
+                 "vs +/-{:.0f} min over the last 28.".format(stdev(last7) * 60, stdev(mids) * 60))
+    return L
+
+
 def _fmt(v, dec=1, sign=False):
     if v is None:
         return "--"
@@ -592,6 +652,10 @@ def render_markdown(days, sorted_days, cycles, period_source="", actions=None):
                 c["start"], c["length_days"] if c["complete"] else "{} (open)".format(c["days_so_far"]),
                 c["ovulation_est"], (_d(c["ovulation_est"]) - _d(c["start"])).days + 1, c["luteal_len"] if c["luteal_len"] is not None else "--",
                 " | ".join(_fmt(r["deltas"].get(m), _dec(m), True) for m in cols)))
+    L.append("")
+
+    L.append("## Hormone-linked signals (downstream signs only; the ring does not measure hormones; the HR/HRV literature values are luteal vs menses, so those percentages are rough)")
+    L.extend("- " + x if not x.startswith("- ") else x for x in hormone_readout(days, sorted_days, cycles))
     L.append("")
 
     summ = phase_summary(days, cycles, rows)
