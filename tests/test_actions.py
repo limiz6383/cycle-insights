@@ -74,3 +74,25 @@ class PeriodReport(unittest.TestCase):
             self.assertIn("sleeping HR", text)
             self.assertIn("What changed", text)
             self.assertLess(len(text), 4000)
+
+
+class HormoneReadout(unittest.TestCase):
+    def test_summary_has_hormone_signals_and_gap_note(self):
+        dump = make_dump(days=120)
+        last = sorted({r["day"] for r in dump["sleep"]["data"]})[-1]
+        dump["sleep"]["data"] = [r for r in dump["sleep"]["data"] if r["day"] != last]
+        with tempfile.TemporaryDirectory() as t:
+            src, out = Path(t) / "d.json", Path(t) / "s.md"
+            src.write_text(json.dumps(dump))
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "preprocess_oura.py"),
+                            "--input", str(src), "--output", str(out), "--insights-dir", str(Path(t) / "none"),
+                            "--user-log", str(Path(t) / "none.json")], check=True, capture_output=True)
+            md = out.read_text()
+        self.assertIn("## Hormone-linked signals", md)
+        self.assertIn("% of typical", md)
+        self.assertIn("Low-fuel-type pattern check", md)
+        self.assertIn("**Data gap:**", md)
+
+    def test_fetch_asks_for_tomorrow(self):
+        text = (ROOT / "scripts" / "fetch_oura_data.py").read_text()
+        self.assertIn('"end_date": (END + timedelta(days=1)).isoformat()', text)

@@ -98,7 +98,7 @@ def check_online(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--prompt-file", default=str(ROOT / "prompts" / "v3.3.md"))
+    ap.add_argument("--prompt-file", default=str(ROOT / "prompts" / "v3.4.md"))
     ap.add_argument("--online", action="store_true")
     a = ap.parse_args()
     problems = structure_problems(a.prompt_file)

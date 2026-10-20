@@ -139,7 +139,7 @@ def main():
     ap.add_argument("--cadence", choices=["daily", "weekly"], default="daily",
                     help="daily (default): short, today-focused, avoids repeating recent insights; "
                          "weekly: the longer one-pattern insight.")
-    ap.add_argument("--prompt-version", default="v3.3", help="Label recorded in the run record; also picks prompts/<version>.md.")
+    ap.add_argument("--prompt-version", default="v3.4", help="Label recorded in the run record; also picks prompts/<version>.md.")
     ap.add_argument("--prompt-file", default=None,
                     help="Read the system prompt from this file (default: prompts/<prompt-version>.md).")
     ap.add_argument("--no-judge", action="store_true",

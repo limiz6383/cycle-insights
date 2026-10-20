@@ -11,7 +11,8 @@ import self_check as sc  # noqa: E402
 
 SUMMARY = "sleeping HR 57.6 bpm baseline 59.8 +- 1.1; cycle day 20; sleep midpoint 2.6 h"
 FILLER = " ".join(["Your sleep midpoint moved later and your sleeping HR sits under baseline."] * 11)
-GOOD = ("Cycle day 20: your sleeping HR is 57.6 bpm against 59.8 usually. " + FILLER +
+GOOD = ("Cycle day 20: your sleeping HR is 57.6 bpm against 59.8 usually. This pattern is consistent "
+        "with progesterone not having risen yet (KB26), though the ring only measures downstream signs. " + FILLER +
         "\n\n**Today:** 1. Start a wind-down at 21:30. 2. Keep screens out of the last hour.\n\n"
         "**Watch for:** sleeping HR back near 59.8 over two nights.")
 

@@ -14,7 +14,7 @@ What it does with each message from your chat (anything from another chat is ign
   - /weekly and /monthly (also /weekly_summary, /monthly-summary) give a stats report for the last
     7 or 30 days, computed from your data with no model call. /help lists the commands; /insight
     shows the latest insight.
-  - Anything else is a question. It goes to the model with prompt v3.3 in "chat" cadence:
+  - Anything else is a question. It goes to the model with prompt v3.4 in "chat" cadence:
     your Oura summary (scripts/oura_summary.md, refreshed by scheduled_pull.py), the recent
     insights, and the last few turns of this conversation.
 
@@ -94,7 +94,7 @@ def recent_insight_text(n=3, insights_dir=None):
     return "\n".join(out)
 
 
-def build_chat_prompt(question, history, summary_path, context="", prompt_version="v3.3",
+def build_chat_prompt(question, history, summary_path, context="", prompt_version="v3.4",
                       insights_dir=None):
     summary = Path(summary_path).read_text().strip() if Path(summary_path).exists() else ""
     return inject_user_data(
@@ -265,7 +265,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--summary", default=str(SCRIPTS_DIR / "oura_summary.md"))
-    ap.add_argument("--prompt-version", default="v3.3")
+    ap.add_argument("--prompt-version", default="v3.4")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--once", action="store_true", help="Handle waiting messages and exit.")
     ap.add_argument("--dry-run", action="store_true",

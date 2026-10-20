@@ -47,7 +47,7 @@ This project reads the same data and reframes it against the endocrinology liter
 flowchart LR
     subgraph daily ["Daily job (launchd, 08:00)"]
         A[fetch_oura_data.py<br/>Oura API v2] --> B[preprocess_oura.py<br/>+ cycle_analysis.py]
-        B --> C[generate_insight.py<br/>Claude + prompt v3.3]
+        B --> C[generate_insight.py<br/>Claude + prompt v3.4]
         C --> D{self_check.py<br/>rules + LLM judge}
         D -- fails --> C
         D -- passes --> E[send_insight.py<br/>Telegram]
@@ -69,7 +69,7 @@ flowchart LR
 | **1. Pull** | Fetches readiness, sleep, activity, SpO2, stress and user-tagged period days from the Oura API. The new dump only replaces yesterday's if the critical endpoints came back, so an expired token can't silently wipe the data. | `scripts/fetch_oura_data.py`, `scripts/scheduled_pull.py` |
 | **2. Preprocess** | Builds a compact markdown summary the prompt consumes: coverage, cycle markers, rolling windows, and a "last 3 nights" table. | `scripts/preprocess_oura.py` |
 | **3. Analyse** | Labels each day with cycle day and phase, estimates the temperature shift, and compares recent days with the user's *own* baseline and same-phase baseline in standard deviations. This step is pure arithmetic with no clinical thresholds. | `scripts/cycle_analysis.py` |
-| **4. Generate** | Assembles a 15-block system prompt (knowledge base, counter-framings, diagnostic guardrails, escalation triggers, output format) and asks Claude for one insight. | `scripts/generate_insight.py`, `prompts/v3.3.md` |
+| **4. Generate** | Assembles a 16-block system prompt (knowledge base, counter-framings, diagnostic guardrails, escalation triggers, output format) and asks Claude for one insight. | `scripts/generate_insight.py`, `prompts/v3.4.md` |
 | **5. Self-check** | Free regex checks run first (diagnostic labels, numeric food targets, causal wording, any number not found in the data or knowledge base). Then one reviewer call grades the draft on seven criteria. Failing drafts are rewritten up to twice, and a draft that still fails a safety check is saved as `held` and never sent. | `scripts/self_check.py` |
 | **6. Deliver** | Sends to Telegram. Before a new insight goes out, the bot asks whether yesterday's suggested steps got done. | `scripts/send_insight.py`, `scripts/checkin.py` |
 | **7. Chat** | A long-running bot answers follow-up questions under the same guardrails, records ratings, and serves `/weekly` and `/monthly` stats reports computed with no model call. | `scripts/chat_bot.py`, `scripts/period_report.py` |
@@ -182,7 +182,7 @@ Stop it with `launchctl unload ~/Library/LaunchAgents/com.cycleinsights.chat-bot
 
 ```
 prompts/
-  v3.3.md                 The current system prompt: 15 blocks, with placeholders
+  v3.4.md                 The current system prompt: 16 blocks, with placeholders
                             where runtime data is injected (v3.1, v3.2 kept for history)
 scripts/
   fetch_oura_data.py      Pull raw Oura data (incl. user-tagged period days)

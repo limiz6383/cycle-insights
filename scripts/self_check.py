@@ -107,7 +107,9 @@ G5 safe: no diagnosis, no medication or supplement advice, no numeric food or ex
 G6 fresh: does not restate a point from RECENT INSIGHTS with the same numbers.
 G7 doable and specific: a person could do each step tomorrow without further thought, and the Watch for line names a metric, her baseline and the move that would count.
 
-JSON schema: {"criteria": {"G1": {"verdict": "PASS|FAIL", "evidence": "..."}, ... "G7": {...}}, "fixes": ["one concrete instruction per failed criterion"]}"""
+G8 teaches: it explains what her pattern suggests about her hormones in terms of the signals and the hormones they track (not just whether a number is up or down), says the ring measures downstream signs not hormone levels, and includes one body fact that is not in RECENT INSIGHTS; it does not merely restate numbers she can read in the Oura app.
+
+JSON schema: {"criteria": {"G1": {"verdict": "PASS|FAIL", "evidence": "..."}, ... "G8": {...}}, "fixes": ["one concrete instruction per failed criterion"]}"""
 
 
 def judge_prompt(text, summary, kb_text, recent):
